@@ -80,9 +80,15 @@ export function useVersions(): UseVersionsReturn {
         return;
       }
 
-      await api.installPython();
+      const result = await api.installPython();
       await reloadSnapshot();
-      message.success('Python 安装成功');
+      const { pythonInstalled: installedAfter } = useAppStore.getState();
+      if (!installedAfter) {
+        message.error(`Python 安装未生效：${result}`);
+        return;
+      }
+
+      message.success(result);
     } catch (error) {
       handleApiError(error);
     } finally {

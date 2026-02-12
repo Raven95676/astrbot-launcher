@@ -114,6 +114,14 @@ async fn install_python_version(
     // Extract to target_dir, top-level directory in archive will be stripped
     extract_tar_gz(&archive_path, target_dir)?;
 
+    let python_exe = get_python_exe_path(target_dir);
+    if !python_exe.exists() {
+        return Err(AppError::python(format!(
+            "Python {} extracted but executable not found: {:?}",
+            major_version, python_exe
+        )));
+    }
+
     // Clean up archive
     if let Err(e) = std::fs::remove_file(&archive_path) {
         log::warn!("Failed to remove archive {:?}: {}", archive_path, e);
