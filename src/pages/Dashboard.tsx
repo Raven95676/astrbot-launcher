@@ -124,7 +124,7 @@ export default function Dashboard() {
         }
 
         await api.createInstance(values.name, values.version, values.port ?? 0);
-        await reloadSnapshot();
+        await reloadSnapshot({ throwOnError: true });
         message.success(STATUS_MESSAGES.INSTANCE_CREATED);
         setCreateOpen(false);
         createForm.resetFields();
@@ -170,7 +170,7 @@ export default function Dashboard() {
             values.version,
             values.port ?? 0
           );
-          await reloadSnapshot();
+          await reloadSnapshot({ throwOnError: true });
           message.success(STATUS_MESSAGES.INSTANCE_UPDATED);
         } catch (error) {
           handleApiError(error);
@@ -201,7 +201,7 @@ export default function Dashboard() {
         }
 
         const port = await api.startInstance(id);
-        await reloadSnapshot();
+        await reloadSnapshot({ throwOnError: true });
         message.success(STATUS_MESSAGES.INSTANCE_STARTED(port));
       } catch (error) {
         handleApiError(error);
@@ -231,7 +231,7 @@ export default function Dashboard() {
         }
 
         await api.stopInstance(id);
-        await reloadSnapshot();
+        await reloadSnapshot({ throwOnError: true });
         message.success(STATUS_MESSAGES.INSTANCE_STOPPED);
       } catch (error) {
         handleApiError(error);
@@ -256,7 +256,7 @@ export default function Dashboard() {
         }
 
         const port = await api.restartInstance(id);
-        await reloadSnapshot();
+        await reloadSnapshot({ throwOnError: true });
         message.success(STATUS_MESSAGES.INSTANCE_RESTARTED(port));
       } catch (error) {
         handleApiError(error);
@@ -283,7 +283,7 @@ export default function Dashboard() {
       }
 
       await api.deleteInstance(instanceToDelete.id);
-      await reloadSnapshot();
+      await reloadSnapshot({ throwOnError: true });
       message.success(STATUS_MESSAGES.INSTANCE_DELETED);
       setDeleteOpen(false);
       setInstanceToDelete(null);
@@ -426,7 +426,7 @@ export default function Dashboard() {
           实例管理
         </Title>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={reloadSnapshot} loading={loading}>
+          <Button icon={<ReloadOutlined />} onClick={() => reloadSnapshot()} loading={loading}>
             刷新
           </Button>
           <Button

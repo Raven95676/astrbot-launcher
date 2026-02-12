@@ -34,7 +34,7 @@ export function useVersions(): UseVersionsReturn {
         }
 
         await api.installVersion(release);
-        await reloadSnapshot();
+        await reloadSnapshot({ throwOnError: true });
         message.success(`版本 ${release.tag_name} 下载成功`);
       } catch (error) {
         handleApiError(error);
@@ -58,7 +58,7 @@ export function useVersions(): UseVersionsReturn {
         }
 
         await api.uninstallVersion(version.version);
-        await reloadSnapshot();
+        await reloadSnapshot({ throwOnError: true });
         message.success('已卸载');
       } catch (error) {
         handleApiError(error);

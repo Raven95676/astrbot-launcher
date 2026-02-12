@@ -55,7 +55,7 @@ export default function Backup() {
       }
 
       await api.createBackup(values.instanceId, values.includeVenv);
-      await reloadSnapshot();
+      await reloadSnapshot({ throwOnError: true });
       message.success('备份创建成功');
       setCreateOpen(false);
       createForm.resetFields();
@@ -96,7 +96,7 @@ export default function Backup() {
       }
 
       await api.restoreBackup(selectedBackup.path);
-      await reloadSnapshot();
+      await reloadSnapshot({ throwOnError: true });
       message.success('备份恢复成功');
       setRestoreOpen(false);
       setSelectedBackup(null);
@@ -123,7 +123,7 @@ export default function Backup() {
       }
 
       await api.deleteBackup(backupToDelete.path);
-      await reloadSnapshot();
+      await reloadSnapshot({ throwOnError: true });
       message.success('备份已删除');
       setDeleteOpen(false);
       setBackupToDelete(null);
@@ -223,7 +223,7 @@ export default function Backup() {
           备份管理
         </Title>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={reloadSnapshot} loading={loading}>
+          <Button icon={<ReloadOutlined />} onClick={() => reloadSnapshot()} loading={loading}>
             刷新
           </Button>
           <Button

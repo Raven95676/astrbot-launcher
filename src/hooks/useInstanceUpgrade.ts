@@ -35,7 +35,7 @@ export function useInstanceUpgrade() {
         startOperation(OPERATION_KEYS.instance(instance.id));
 
         await api.updateInstance(instance.id, newName, newVersion);
-        await reloadSnapshot();
+        await reloadSnapshot({ throwOnError: true });
         message.success(STATUS_MESSAGES.INSTANCE_UPDATED);
         // done event from backend auto-closes the modal via event listener
         return true;

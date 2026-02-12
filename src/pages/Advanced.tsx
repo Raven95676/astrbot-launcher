@@ -60,7 +60,7 @@ export default function Advanced() {
   const handleCloseToTrayChange = async (value: string) => {
     try {
       await api.saveCloseToTray(value === 'tray');
-      await reloadSnapshot();
+      await reloadSnapshot({ throwOnError: true });
       message.success('设置已保存');
     } catch (error) {
       handleApiError(error);
@@ -70,7 +70,7 @@ export default function Advanced() {
   const handleCheckInstanceUpdateChange = async (checked: boolean) => {
     try {
       await api.saveCheckInstanceUpdate(checked);
-      await reloadSnapshot();
+      await reloadSnapshot({ throwOnError: true });
       message.success('设置已保存');
     } catch (error) {
       handleApiError(error);
@@ -80,7 +80,7 @@ export default function Advanced() {
   const handlePersistInstanceStateChange = async (checked: boolean) => {
     try {
       await api.savePersistInstanceState(checked);
-      await reloadSnapshot();
+      await reloadSnapshot({ throwOnError: true });
       message.success('设置已保存');
     } catch (error) {
       handleApiError(error);
@@ -107,7 +107,7 @@ export default function Advanced() {
     try {
       await reloadSnapshot();
       await api.saveGithubProxy(githubProxy);
-      await reloadSnapshot();
+      await reloadSnapshot({ throwOnError: true });
       message.success('GitHub 代理已保存');
     } catch (error) {
       handleApiError(error);
@@ -122,7 +122,7 @@ export default function Advanced() {
     try {
       await reloadSnapshot();
       await api.savePypiMirror(pypiMirror);
-      await reloadSnapshot();
+      await reloadSnapshot({ throwOnError: true });
       message.success('PyPI 镜像源已保存');
     } catch (error) {
       handleApiError(error);
@@ -153,7 +153,7 @@ export default function Advanced() {
       }
 
       await api.clearInstanceData(selectedDataInstance);
-      await reloadSnapshot();
+      await reloadSnapshot({ throwOnError: true });
       message.success('数据已清空');
       setSelectedDataInstance(null);
       setConfirmModal(null);
@@ -185,7 +185,7 @@ export default function Advanced() {
       }
 
       await api.clearInstanceVenv(selectedVenvInstance);
-      await reloadSnapshot();
+      await reloadSnapshot({ throwOnError: true });
       message.success('虚拟环境已清空');
       setSelectedVenvInstance(null);
       setConfirmModal(null);
@@ -212,7 +212,7 @@ export default function Advanced() {
       }
 
       await api.clearPycache(selectedPycacheInstance);
-      await reloadSnapshot();
+      await reloadSnapshot({ throwOnError: true });
       message.success('Python 缓存已清空');
       setSelectedPycacheInstance(null);
       setConfirmModal(null);
@@ -229,9 +229,9 @@ export default function Advanced() {
     const key = OPERATION_KEYS.reinstallPython(selectedPythonVersion);
     startOperation(key);
     try {
-      await api.reinstallPython(selectedPythonVersion);
-      await reloadSnapshot();
-      message.success(`Python ${selectedPythonVersion} reinstalled`);
+      const result = await api.reinstallPython(selectedPythonVersion);
+      await reloadSnapshot({ throwOnError: true });
+      message.success(result);
     } catch (error) {
       handleApiError(error);
     } finally {
@@ -353,7 +353,7 @@ export default function Advanced() {
         <Title level={4} style={{ margin: 0 }}>
           高级设置
         </Title>
-        <Button icon={<ReloadOutlined />} onClick={reloadSnapshot} loading={loading}>
+        <Button icon={<ReloadOutlined />} onClick={() => reloadSnapshot()} loading={loading}>
           刷新
         </Button>
       </div>
