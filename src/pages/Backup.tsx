@@ -1,0 +1,338 @@
+import { useState } from 'react';
+import {
+  Button,
+  Space,
+  Table,
+  Tag,
+  Modal,
+  Form,
+  Select,
+  Checkbox,
+  Typography,
+  Empty,
+  Alert,
+} from 'antd';
+import { SaveOutlined, DeleteOutlined, ReloadOutlined, ImportOutlined } from '@ant-design/icons';
+import { api, BackupInfo } from '../api';
+import { message } from '../antdStatic';
+import { useAppStore } from '../stores';
+import { ConfirmModal } from '../components';
+import { handleApiError } from '../utils';
+import { OPERATION_KEYS } from '../constants';
+
+const { Title, Text } = Typography;
+
+export default function Backup() {
+  const instances = useAppStore((s) => s.instances);
+  const backups = useAppStore((s) => s.backups);
+  const loading = useAppStore((s) => s.loading);
+  const operations = useAppStore((s) => s.operations);
+  const startOperation = useAppStore((s) => s.startOperation);
+  const finishOperation = useAppStore((s) => s.finishOperation);
+  const reloadSnapshot = useAppStore((s) => s.reloadSnapshot);
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [selectedBackup, setSelectedBackup] = useState<BackupInfo | null>(null);
+  const [backupToDelete, setBackupToDelete] = useState<BackupInfo | null>(null);
+  const [createForm] = Form.useForm();
+
+  const handleCreate = async (values: { instanceId: string; includeVenv: boolean }) => {
+    const key = OPERATION_KEYS.backupCreate;
+    startOperation(key);
+    try {
+      await reloadSnapshot();
+      const { instances: latestInstances } = useAppStore.getState();
+      const latestInstance = latestInstances.find((i) => i.id === values.instanceId);
+      if (!latestInstance) {
+        message.warning('实例不存在或已被删除');
+        return;
+      }
+      if (latestInstance.running) {
+        message.warning('请先停止实例再创建备份');
+        return;
+      }
+
+      await api.createBackup(values.instanceId, values.includeVenv);
+      await reloadSnapshot();
+      message.success('备份创建成功');
+      setCreateOpen(false);
+      createForm.resetFields();
+    } catch (error) {
+      handleApiError(error);
+    } finally {
+      finishOperation(key);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!selectedBackup) return;
+
+    const key = OPERATION_KEYS.backupRestore;
+    startOperation(key);
+    try {
+      await reloadSnapshot();
+      const { backups: latestBackups, instances: latestInstances } = useAppStore.getState();
+      if (!latestBackups.some((b) => b.path === selectedBackup.path)) {
+        message.warning('备份不存在或已被删除');
+        setRestoreOpen(false);
+        setSelectedBackup(null);
+        return;
+      }
+
+      const targetInstance = latestInstances.find(
+        (i) => i.id === selectedBackup.metadata.instance_id
+      );
+      if (!targetInstance) {
+        message.warning('原实例不存在或已被删除');
+        setRestoreOpen(false);
+        setSelectedBackup(null);
+        return;
+      }
+      if (targetInstance.running) {
+        message.warning('请先停止实例再恢复备份');
+        return;
+      }
+
+      await api.restoreBackup(selectedBackup.path);
+      await reloadSnapshot();
+      message.success('备份恢复成功');
+      setRestoreOpen(false);
+      setSelectedBackup(null);
+    } catch (error) {
+      handleApiError(error);
+    } finally {
+      finishOperation(key);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!backupToDelete) return;
+
+    const key = OPERATION_KEYS.backupDelete;
+    startOperation(key);
+    try {
+      await reloadSnapshot();
+      const { backups: latestBackups } = useAppStore.getState();
+      if (!latestBackups.some((b) => b.path === backupToDelete.path)) {
+        message.info('备份已删除');
+        setDeleteOpen(false);
+        setBackupToDelete(null);
+        return;
+      }
+
+      await api.deleteBackup(backupToDelete.path);
+      await reloadSnapshot();
+      message.success('备份已删除');
+      setDeleteOpen(false);
+      setBackupToDelete(null);
+    } catch (error) {
+      handleApiError(error);
+    } finally {
+      finishOperation(key);
+    }
+  };
+
+  const openRestore = (backup: BackupInfo) => {
+    setSelectedBackup(backup);
+    setRestoreOpen(true);
+  };
+
+  const openDelete = (backup: BackupInfo) => {
+    setBackupToDelete(backup);
+    setDeleteOpen(true);
+  };
+
+  const stoppedInstances = instances.filter((i) => !i.running);
+
+  // 所有实例的选项，运行中的实例标记为禁用
+  const instanceOptions = instances.map((i) => ({
+    label: i.running ? `${i.name} (${i.version}) - 运行中` : `${i.name} (${i.version})`,
+    value: i.id,
+    disabled: i.running,
+  }));
+
+  const columns = [
+    {
+      title: '实例名称',
+      dataIndex: ['metadata', 'instance_name'],
+      key: 'instance_name',
+    },
+    {
+      title: '版本',
+      dataIndex: ['metadata', 'version'],
+      key: 'version',
+      width: 100,
+    },
+    {
+      title: '创建时间',
+      dataIndex: ['metadata', 'created_at'],
+      key: 'created_at',
+      width: 180,
+      render: (v: string) => new Date(v).toLocaleString(),
+    },
+    {
+      title: '包含',
+      key: 'includes',
+      width: 120,
+      render: (_: unknown, record: BackupInfo) => (
+        <Space>
+          {record.metadata.includes_data && <Tag>数据</Tag>}
+          {record.metadata.includes_venv && (
+            <Tag>
+              虚拟环境
+              {record.metadata.arch_target
+                ? ` (${record.metadata.arch_target.split('-')[0]}-${record.metadata.arch_target.split('-').slice(-1)[0]})`
+                : ''}
+            </Tag>
+          )}
+        </Space>
+      ),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 120,
+      render: (_: unknown, record: BackupInfo) => (
+        <Space size="small">
+          <Button type="text" icon={<ImportOutlined />} onClick={() => openRestore(record)} />
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            disabled={deleteOpen && backupToDelete?.path === record.path}
+            onClick={() => openDelete(record)}
+          />
+        </Space>
+      ),
+    },
+  ];
+
+  return (
+    <>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 16,
+        }}
+      >
+        <Title level={4} style={{ margin: 0 }}>
+          备份管理
+        </Title>
+        <Space>
+          <Button icon={<ReloadOutlined />} onClick={reloadSnapshot} loading={loading}>
+            刷新
+          </Button>
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
+            onClick={() => setCreateOpen(true)}
+            disabled={stoppedInstances.length === 0}
+          >
+            创建备份
+          </Button>
+        </Space>
+      </div>
+
+      {stoppedInstances.length === 0 && instances.length > 0 && (
+        <Alert
+          title="需要先停止实例才能创建备份"
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
+      <Table
+        dataSource={backups}
+        columns={columns}
+        rowKey="path"
+        loading={loading}
+        pagination={false}
+        locale={{
+          emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无备份" />,
+        }}
+      />
+
+      {/* Create Backup Modal */}
+      <Modal
+        title="创建备份"
+        open={createOpen}
+        onCancel={() => setCreateOpen(false)}
+        onOk={() => createForm.submit()}
+        closable={false}
+        confirmLoading={operations[OPERATION_KEYS.backupCreate]}
+        cancelButtonProps={{ disabled: operations[OPERATION_KEYS.backupCreate] }}
+        destroyOnHidden
+      >
+        <Form form={createForm} layout="vertical" onFinish={handleCreate}>
+          <Form.Item
+            name="instanceId"
+            label="选择实例"
+            rules={[{ required: true, message: '请选择实例' }]}
+          >
+            <Select placeholder="选择要备份的实例" options={instanceOptions} />
+          </Form.Item>
+          <Form.Item name="includeVenv" valuePropName="checked" initialValue={false}>
+            <Checkbox>包含虚拟环境</Checkbox>
+          </Form.Item>
+          <Text type="secondary">
+            包含虚拟环境会增加备份文件大小，并且限定平台，但恢复后无需重新安装依赖
+          </Text>
+        </Form>
+      </Modal>
+
+      {/* Restore Backup Modal */}
+      <ConfirmModal
+        open={restoreOpen}
+        title="恢复备份"
+        content={
+          selectedBackup && (
+            <>
+              <p>
+                确定将备份 <strong>{selectedBackup.filename}</strong> 恢复到原实例？
+              </p>
+              <Text type="secondary">
+                原实例: {selectedBackup.metadata.instance_name} | 版本:{' '}
+                {selectedBackup.metadata.version}
+              </Text>
+              <br />
+              <Text type="secondary">
+                注意: 恢复将覆盖原实例的数据
+                {selectedBackup.metadata.includes_venv ? '和虚拟环境' : ''}
+              </Text>
+            </>
+          )
+        }
+        loading={operations[OPERATION_KEYS.backupRestore]}
+        onConfirm={handleRestore}
+        onCancel={() => {
+          setRestoreOpen(false);
+          setSelectedBackup(null);
+        }}
+      />
+
+      {/* Delete Backup Modal */}
+      <ConfirmModal
+        open={deleteOpen}
+        title="确认删除"
+        danger
+        content={
+          <>
+            <p>确定删除此备份？</p>
+            {backupToDelete && <Text type="secondary">文件名: {backupToDelete.filename}</Text>}
+          </>
+        }
+        loading={operations[OPERATION_KEYS.backupDelete]}
+        onConfirm={handleDelete}
+        onCancel={() => {
+          setDeleteOpen(false);
+          setBackupToDelete(null);
+        }}
+      />
+    </>
+  );
+}

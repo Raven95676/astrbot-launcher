@@ -1,0 +1,19 @@
+export const OPERATION_KEYS = {
+  instance: (instanceId: string) => `instance:${instanceId}`,
+  deleteInstance: 'delete',
+
+  installVersion: (tag: string) => `install:${tag}`,
+  uninstallVersion: (version: string) => `uninstall:${version}`,
+  installPython: 'install-python',
+  reinstallPython: (version: '3.10' | '3.12') => `reinstall-python:${version}`,
+
+  backupCreate: 'backup:create',
+  backupRestore: 'backup:restore',
+  backupDelete: 'backup:delete',
+
+  advancedSaveGithubProxy: 'adv:save-github-proxy',
+  advancedSavePypiMirror: 'adv:save-pypi-mirror',
+  advancedClearData: (instanceId: string) => `adv:data-${instanceId}`,
+  advancedClearVenv: (instanceId: string) => `adv:venv-${instanceId}`,
+  advancedClearPycache: (instanceId: string) => `adv:pycache-${instanceId}`,
+} as const;

@@ -1,0 +1,248 @@
+//! Instance lifecycle management (start/stop/restart).
+
+use std::sync::Arc;
+
+use tauri::AppHandle;
+use tokio::io::{AsyncBufReadExt as _, BufReader};
+use tokio::process::Command;
+
+use super::crud::is_dashboard_enabled;
+use super::deploy::{deploy_instance, emit_progress};
+use crate::config::load_config;
+use crate::error::{AppError, Result};
+use crate::paths::{
+    get_instance_core_dir, get_instance_venv_dir, get_venv_python, is_instance_deployed,
+};
+use crate::process::{
+    check_port_available, find_available_port, force_kill, graceful_shutdown, ProcessManager,
+};
+use crate::validation::validate_instance_id;
+
+const STARTUP_HEALTH_CHECK_DELAY_SECS: u64 = 3;
+
+/// Start an instance. Will deploy first if not already deployed.
+pub async fn start_instance(
+    instance_id: &str,
+    app_handle: &AppHandle,
+    process_manager: Arc<ProcessManager>,
+) -> Result<u16> {
+    validate_instance_id(instance_id)?;
+
+    if process_manager.is_running(instance_id).await {
+        return Err(AppError::instance_running());
+    }
+
+    // Check if instance needs deployment
+    if !is_instance_deployed(instance_id) {
+        deploy_instance(instance_id, app_handle).await?;
+    }
+
+    // Check if dashboard is enabled
+    let dashboard_enabled = is_dashboard_enabled(instance_id);
+
+    emit_progress(app_handle, instance_id, "start", "正在启动实例...", 95);
+
+    let core_dir = get_instance_core_dir(instance_id);
+    let venv_dir = get_instance_venv_dir(instance_id);
+    let venv_python = get_venv_python(&venv_dir);
+
+    // Find available port (even if dashboard disabled, AstrBot may need it internally)
+    let config = load_config()?;
+    let instance_config = config
+        .instances
+        .get(instance_id)
+        .ok_or_else(|| AppError::instance_not_found(instance_id))?;
+    let port = if instance_config.port > 0 {
+        check_port_available(instance_config.port)?;
+        instance_config.port
+    } else {
+        find_available_port()?
+    };
+
+    let main_py = core_dir.join("main.py");
+    if !main_py.exists() {
+        return Err(AppError::io(core_dir.display().to_string()));
+    }
+
+    // Build command with environment variables
+    let mut cmd = Command::new(&venv_python);
+    cmd.arg(&main_py)
+        .current_dir(&core_dir)
+        .env("ASTRBOT_LAUNCHER", "1")
+        .env("DASHBOARD_PORT", port.to_string())
+        .env("PYTHONUNBUFFERED", "1")
+        .env("PYTHONIOENCODING", "utf-8")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+
+    #[cfg(target_os = "windows")]
+    {
+        use windows::Win32::System::Threading::CREATE_NO_WINDOW;
+        cmd.creation_flags(CREATE_NO_WINDOW.0);
+    }
+
+    #[cfg(unix)]
+    {
+        cmd.process_group(0);
+    }
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| AppError::process(format!("Failed to start instance: {}", e)))?;
+
+    let pid = child
+        .id()
+        .ok_or_else(|| AppError::process("Failed to get process ID"))?;
+
+    // Store process info with port and dashboard_enabled
+    process_manager.set_process(instance_id, pid, port, dashboard_enabled);
+
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| AppError::process("Failed to capture stdout"))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| AppError::process("Failed to capture stderr"))?;
+
+    let instance_id_stderr = instance_id.to_string();
+    let mut stderr_reader = BufReader::new(stderr).lines();
+
+    // Log stderr in background
+    tokio::spawn(async move {
+        while let Ok(Some(line)) = stderr_reader.next_line().await {
+            log::error!("[AstrBot {} stderr] {}", instance_id_stderr, line);
+        }
+    });
+
+    // Wait for child process in background
+    let instance_id_wait = instance_id.to_string();
+    let process_manager_for_wait = Arc::clone(&process_manager);
+    let expected_pid = pid;
+    tokio::spawn(async move {
+        let _ = child.wait().await;
+        log::info!("Instance {} process exited", instance_id_wait);
+        // Only mark the PID as exited; the runtime monitor handles cleanup.
+        process_manager_for_wait.mark_pid_exited(&instance_id_wait, expected_pid);
+    });
+
+    if dashboard_enabled {
+        // Dashboard enabled: use HTTP health check
+        let instance_id_stdout = instance_id.to_string();
+        let mut stdout_reader = BufReader::new(stdout).lines();
+
+        tokio::spawn(async move {
+            while let Ok(Some(line)) = stdout_reader.next_line().await {
+                log::info!("[AstrBot {} stdout] {}", instance_id_stdout, line);
+            }
+        });
+
+        tokio::time::sleep(tokio::time::Duration::from_secs(
+            STARTUP_HEALTH_CHECK_DELAY_SECS,
+        ))
+        .await;
+
+        match process_manager.wait_for_startup(pid, port, 120).await {
+            Ok(()) => {
+                log::info!(
+                    "Instance {} started (pid: {}, port: {})",
+                    instance_id,
+                    pid,
+                    port
+                );
+                emit_progress(app_handle, instance_id, "done", "实例已启动", 100);
+                Ok(port)
+            }
+            Err(e) => {
+                if let Err(kill_err) = force_kill(pid) {
+                    log::warn!(
+                        "Failed to kill timed-out instance {}: {}",
+                        instance_id,
+                        kill_err
+                    );
+                }
+                process_manager.remove(instance_id);
+                emit_progress(app_handle, instance_id, "error", &e, 0);
+                Err(AppError::process(e))
+            }
+        }
+    } else {
+        // Dashboard disabled: use log-based detection
+        let (tx, mut rx) = tokio::sync::oneshot::channel::<()>();
+        let mut tx = Some(tx);
+        let instance_id_stdout = instance_id.to_string();
+        let mut stdout_reader = BufReader::new(stdout).lines();
+
+        tokio::spawn(async move {
+            while let Ok(Some(line)) = stdout_reader.next_line().await {
+                log::info!("[AstrBot {} stdout] {}", instance_id_stdout, line);
+                if line.contains("AstrBot 启动完成") {
+                    if let Some(sender) = tx.take() {
+                        let _ = sender.send(());
+                    }
+                }
+            }
+        });
+
+        // Wait for startup signal or timeout
+        let timeout = tokio::time::Duration::from_secs(120);
+        match tokio::time::timeout(timeout, &mut rx).await {
+            Ok(Ok(())) => {
+                log::info!(
+                    "Instance {} started via log detection (pid: {}, dashboard disabled)",
+                    instance_id,
+                    pid
+                );
+                emit_progress(app_handle, instance_id, "done", "实例已启动", 100);
+                Ok(port)
+            }
+            _ => {
+                let e = "Instance startup timed out (120s)";
+                if let Err(kill_err) = force_kill(pid) {
+                    log::warn!(
+                        "Failed to kill timed-out instance {}: {}",
+                        instance_id,
+                        kill_err
+                    );
+                }
+                process_manager.remove(instance_id);
+                emit_progress(app_handle, instance_id, "error", e, 0);
+                Err(AppError::startup_timeout())
+            }
+        }
+    }
+}
+
+/// Stop an instance with graceful shutdown.
+///
+/// Removes the instance from tracking, then waits for graceful shutdown to complete
+/// before returning.
+pub async fn stop_instance(instance_id: &str, process_manager: Arc<ProcessManager>) -> Result<()> {
+    validate_instance_id(instance_id)?;
+
+    let info = process_manager
+        .remove(instance_id)
+        .ok_or_else(AppError::instance_not_running)?;
+
+    let pid = info.pid;
+    tokio::task::spawn_blocking(move || graceful_shutdown(&[pid]))
+        .await
+        .map_err(|e| AppError::process(format!("Failed to wait for graceful shutdown: {}", e)))?;
+
+    Ok(())
+}
+
+/// Restart an instance.
+pub async fn restart_instance(
+    instance_id: &str,
+    app_handle: &AppHandle,
+    process_manager: Arc<ProcessManager>,
+) -> Result<u16> {
+    validate_instance_id(instance_id)?;
+
+    if process_manager.is_running(instance_id).await {
+        stop_instance(instance_id, Arc::clone(&process_manager)).await?;
+    }
+    start_instance(instance_id, app_handle, process_manager).await
+}

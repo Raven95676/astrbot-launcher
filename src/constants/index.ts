@@ -1,0 +1,63 @@
+import type { StepItem, DeployStep } from '../types';
+
+// ========================================
+// Deploy Steps Configuration
+// ========================================
+
+export const DEPLOY_STEPS: StepItem[] = [
+  { key: 'extract', title: '解压文件' },
+  { key: 'venv', title: '创建虚拟环境' },
+  { key: 'deps', title: '安装依赖' },
+  { key: 'start', title: '启动实例' },
+];
+
+export const UPGRADE_STEPS: StepItem[] = [
+  { key: 'backup', title: '备份数据' },
+  { key: 'extract', title: '解压文件' },
+  { key: 'venv', title: '创建虚拟环境' },
+  { key: 'deps', title: '安装依赖' },
+  { key: 'restore', title: '还原数据' },
+];
+
+export const DOWNGRADE_STEPS: StepItem[] = UPGRADE_STEPS;
+
+// ========================================
+// Step Index Calculator
+// ========================================
+
+export const getDeployStepIndex = (step: DeployStep, isVersionChange: boolean): number => {
+  const steps = isVersionChange ? UPGRADE_STEPS : DEPLOY_STEPS;
+  const index = steps.findIndex((s) => s.key === step);
+  return index >= 0 ? index : 0;
+};
+
+// ========================================
+// Timing
+// ========================================
+
+export const MODAL_CLOSE_DELAY_MS = 1000;
+
+// ========================================
+// UI Constants
+// ========================================
+
+export const TABLE_ACTION_COLUMN_WIDTH = 180;
+
+// ========================================
+// Status Messages
+// ========================================
+
+export const STATUS_MESSAGES = {
+  INSTANCE_CREATED: '实例创建成功',
+  INSTANCE_DELETED: '实例已删除',
+  INSTANCE_UPDATED: '实例已更新',
+  INSTANCE_STARTED: (port: number) => `实例已启动，端口: ${port}`,
+  INSTANCE_STOPPED: '实例已停止',
+  INSTANCE_RESTARTED: (port: number) => `实例已重启，端口: ${port}`,
+  DATA_RESTORED: (port: number) => `实例已启动，端口: ${port}，数据已恢复`,
+  DATA_RESTORE_FAILED: (error: string) => `数据恢复失败: ${error}`,
+  START_INSTANCE_FIRST: '请先启动实例',
+} as const;
+
+export { OPERATION_KEYS } from './operationKeys';
+export { ErrorCode, getErrorText } from './errorCodes';

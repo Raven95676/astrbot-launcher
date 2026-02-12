@@ -1,0 +1,146 @@
+// ========================================
+// App Error Types
+// ========================================
+
+export interface AppError {
+  code: number;
+  payload: Record<string, string>;
+}
+
+// ========================================
+// App Configuration Types
+// ========================================
+
+export interface AppConfig {
+  instances: Record<string, InstanceConfig>;
+  installed_versions: InstalledVersion[];
+  github_proxy: string;
+  pypi_mirror: string;
+  close_to_tray: boolean;
+  check_instance_update: boolean;
+  persist_instance_state: boolean;
+}
+
+// ========================================
+// Instance Types
+// ========================================
+
+export interface InstanceConfig {
+  id: string;
+  name: string;
+  version: string;
+  port: number;
+  created_at: string;
+}
+
+export interface AppSnapshot {
+  instances: InstanceStatus[];
+  versions: InstalledVersion[];
+  backups: BackupInfo[];
+  python_installed: boolean;
+  config: AppConfig;
+}
+
+export interface InstanceStatus {
+  id: string;
+  name: string;
+  running: boolean;
+  port: number;
+  version: string;
+  dashboard_enabled: boolean;
+  configured_port: number;
+}
+
+// ========================================
+// Version Types
+// ========================================
+
+export interface InstalledVersion {
+  version: string;
+  zip_path: string;
+}
+
+// ========================================
+// GitHub Types
+// ========================================
+
+export interface GitHubRelease {
+  tag_name: string;
+  name: string;
+  published_at: string;
+  prerelease: boolean;
+  assets: GitHubAsset[];
+  html_url: string;
+  body: string | null;
+}
+
+export interface GitHubAsset {
+  name: string;
+  browser_download_url: string;
+  size: number;
+}
+
+// ========================================
+// Backup Types
+// ========================================
+
+export interface BackupMetadata {
+  created_at: string;
+  instance_name: string;
+  instance_id: string;
+  version: string;
+  includes_venv: boolean;
+  includes_data: boolean;
+  arch_target: string;
+}
+
+export interface BackupInfo {
+  filename: string;
+  path: string;
+  metadata: BackupMetadata;
+}
+
+// ========================================
+// Deploy Types
+// ========================================
+
+export type DeployStep =
+  | 'backup'
+  | 'extract'
+  | 'venv'
+  | 'deps'
+  | 'restore'
+  | 'start'
+  | 'done'
+  | 'error';
+
+export interface DeployProgress {
+  instance_id: string;
+  step: DeployStep;
+  message: string;
+  progress: number; // 0-100
+}
+
+export type DeployType = 'start' | 'upgrade' | 'downgrade' | null;
+
+export interface DeployState {
+  instanceName: string;
+  deployType: 'start' | 'upgrade' | 'downgrade';
+  progress: DeployProgress | null;
+}
+
+// ========================================
+// UI Types
+// ========================================
+
+export interface StepItem {
+  key: DeployStep;
+  title: string;
+}
+
+export interface ConfirmModalConfig {
+  title: string;
+  content: string;
+  onOk: () => Promise<void>;
+  danger?: boolean;
+}

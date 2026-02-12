@@ -1,0 +1,52 @@
+{
+  "name": "astrbot-launcher",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.18.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "fe:lint": "eslint src",
+    "fe:lint:fix": "eslint src --fix",
+    "fe:fmt": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "cargo:fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml",
+    "cargo:check": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "cargo:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets",
+    "fmt:all": "pnpm run fe:fmt && pnpm run cargo:fmt",
+    "check:all": "pnpm run fe:lint && pnpm run cargo:check"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.1.0",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-autostart": "~2.5.1",
+    "@tauri-apps/plugin-dialog": "~2.6.0",
+    "@tauri-apps/plugin-log": "~2",
+    "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-updater": "~2.10.0",
+    "@tauri-apps/plugin-window-state": "~2.4.1",
+    "antd": "^6.2.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.13.0",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@tauri-apps/cli": "^2",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@typescript-eslint/eslint-plugin": "^8.55.0",
+    "@typescript-eslint/parser": "^8.55.0",
+    "@vitejs/plugin-react": "^4.6.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "prettier": "^3.8.1",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4"
+  }
+}
