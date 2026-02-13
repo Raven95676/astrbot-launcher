@@ -2,7 +2,8 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::config::load_config;
-use crate::error::{AppError, Result};
+use crate::download::fetch_json;
+use crate::error::Result;
 
 const ASTRBOT_REPO: &str = "AstrBotDevs/AstrBot";
 
@@ -37,7 +38,7 @@ pub fn build_api_url(proxy: &str) -> String {
 
 /// Wrap a URL with the GitHub proxy prefix.
 /// If proxy is empty, returns the original URL unchanged.
-fn wrap_with_proxy(proxy: &str, url: &str) -> String {
+pub fn wrap_with_proxy(proxy: &str, url: &str) -> String {
     if proxy.is_empty() {
         url.to_string()
     } else {
@@ -55,24 +56,7 @@ pub fn build_download_url(proxy: &str, tag: &str) -> String {
 pub async fn fetch_releases(client: &Client) -> Result<Vec<GitHubRelease>> {
     let config = load_config()?;
     let url = build_api_url(&config.github_proxy);
-    let resp = client
-        .get(&url)
-        .header("User-Agent", "astrbot-launcher")
-        .header("Accept", "application/vnd.github.v3+json")
-        .send()
-        .await
-        .map_err(|e| AppError::github(format!("Failed to fetch releases: {}", e)))?;
-
-    if !resp.status().is_success() {
-        return Err(AppError::github(format!(
-            "GitHub API returned status: {}",
-            resp.status()
-        )));
-    }
-
-    resp.json::<Vec<GitHubRelease>>()
-        .await
-        .map_err(|e| AppError::github(format!("Failed to parse releases: {}", e)))
+    fetch_json(client, &url).await
 }
 
 /// Fetch python-build-standalone releases with full asset information.
@@ -82,29 +66,7 @@ pub async fn fetch_python_releases(client: &Client) -> Result<Vec<GitHubRelease>
         &config.github_proxy,
         "https://api.github.com/repos/astral-sh/python-build-standalone/releases?per_page=10",
     );
-    let resp = client
-        .get(&url)
-        .header("User-Agent", "astrbot-launcher")
-        .header("Accept", "application/vnd.github.v3+json")
-        .send()
-        .await
-        .map_err(|e| {
-            AppError::github(format!(
-                "Failed to fetch python-build-standalone releases: {}",
-                e
-            ))
-        })?;
-
-    if !resp.status().is_success() {
-        return Err(AppError::github(format!(
-            "GitHub API returned status: {}",
-            resp.status()
-        )));
-    }
-
-    resp.json::<Vec<GitHubRelease>>()
-        .await
-        .map_err(|e| AppError::github(format!("Failed to parse releases: {}", e)))
+    fetch_json(client, &url).await
 }
 
 /// Get the source archive URL for a given tag, optionally using proxy.

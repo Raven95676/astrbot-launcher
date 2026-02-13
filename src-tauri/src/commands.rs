@@ -68,17 +68,7 @@ pub struct AppSnapshot {
 pub async fn save_github_proxy(github_proxy: String, state: State<'_, AppState>) -> Result<()> {
     // Test connectivity first
     let url = github::build_api_url(&github_proxy);
-    let resp = state
-        .client
-        .get(&url)
-        .header("User-Agent", "astrbot-launcher")
-        .header("Accept", "application/vnd.github.v3+json")
-        .send()
-        .await
-        .map_err(|e| AppError::network_with_url(&url, e.to_string()))?;
-    if !resp.status().is_success() {
-        return Err(AppError::network_with_url(&url, resp.status().to_string()));
-    }
+    download::check_url(&state.client, &url).await?;
     // Test passed, save
     with_config_mut(move |config| {
         config.github_proxy = github_proxy;
@@ -95,16 +85,7 @@ pub async fn save_pypi_mirror(pypi_mirror: String, state: State<'_, AppState>) -
         pypi_mirror.trim_end_matches('/').to_string()
     };
     let url = format!("{}/simple/", base);
-    let resp = state
-        .client
-        .get(&url)
-        .header("User-Agent", "astrbot-launcher")
-        .send()
-        .await
-        .map_err(|e| AppError::network_with_url(&url, e.to_string()))?;
-    if !resp.status().is_success() {
-        return Err(AppError::network_with_url(&url, resp.status().to_string()));
-    }
+    download::check_url(&state.client, &url).await?;
     // Test passed, save
     with_config_mut(move |config| {
         config.pypi_mirror = pypi_mirror;

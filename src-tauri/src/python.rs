@@ -6,7 +6,7 @@ use crate::archive::extract_tar_gz;
 use crate::config::load_config;
 use crate::download::download_file;
 use crate::error::{AppError, Result};
-use crate::github::fetch_python_releases;
+use crate::github::{fetch_python_releases, wrap_with_proxy};
 use crate::paths::{get_compat_python_dir, get_python_dir, get_python_exe_path};
 use crate::platform::find_python_asset_for_version;
 
@@ -97,10 +97,7 @@ async fn install_python_version(
 
     // Apply GitHub proxy to the download URL if configured
     if let Ok(config) = load_config() {
-        if !config.github_proxy.is_empty() {
-            let base = config.github_proxy.trim_end_matches('/');
-            url = format!("{}/{}", base, url);
-        }
+        url = wrap_with_proxy(&config.github_proxy, &url);
     }
 
     let archive_path = target_dir.join("python.tar.gz");

@@ -4,6 +4,7 @@ use std::path::Path;
 
 use futures_util::StreamExt as _;
 use reqwest::Client;
+use serde::de::DeserializeOwned;
 
 use crate::config::{with_config_mut, InstalledVersion};
 use crate::error::{AppError, Result};
@@ -11,6 +12,9 @@ use crate::github::{get_source_archive_url, GitHubRelease};
 use crate::paths::get_versions_dir;
 use crate::validation::resolve_version_zip_path;
 
+const USER_AGENT: &str = "astrbot-launcher";
+
+/// Download a file from `url` and stream it to `dest`.
 pub async fn download_file(client: &Client, url: &str, dest: &Path) -> Result<()> {
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent).map_err(|e| AppError::io(e.to_string()))?;
@@ -18,7 +22,7 @@ pub async fn download_file(client: &Client, url: &str, dest: &Path) -> Result<()
 
     let resp = client
         .get(url)
-        .header("User-Agent", "astrbot-launcher")
+        .header("User-Agent", USER_AGENT)
         .send()
         .await
         .map_err(|e| AppError::network(e.to_string()))?;
@@ -35,6 +39,41 @@ pub async fn download_file(client: &Client, url: &str, dest: &Path) -> Result<()
         let chunk = chunk.map_err(|e| AppError::network(e.to_string()))?;
         file.write_all(&chunk)
             .map_err(|e| AppError::io(e.to_string()))?;
+    }
+
+    Ok(())
+}
+
+/// Fetch JSON from `url` and deserialize into `T`.
+pub async fn fetch_json<T: DeserializeOwned>(client: &Client, url: &str) -> Result<T> {
+    let resp = client
+        .get(url)
+        .header("User-Agent", USER_AGENT)
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(|e| AppError::network(e.to_string()))?;
+
+    if !resp.status().is_success() {
+        return Err(AppError::network(resp.status().to_string()));
+    }
+
+    resp.json::<T>()
+        .await
+        .map_err(|e| AppError::network(format!("Failed to parse response: {}", e)))
+}
+
+/// Check whether `url` is reachable (HTTP GET returns a success status).
+pub async fn check_url(client: &Client, url: &str) -> Result<()> {
+    let resp = client
+        .get(url)
+        .header("User-Agent", USER_AGENT)
+        .send()
+        .await
+        .map_err(|e| AppError::network_with_url(url, e.to_string()))?;
+
+    if !resp.status().is_success() {
+        return Err(AppError::network_with_url(url, resp.status().to_string()));
     }
 
     Ok(())
