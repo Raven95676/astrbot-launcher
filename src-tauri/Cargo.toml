@@ -49,6 +49,9 @@ tauri-plugin-dialog = "2"
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.31.1", features = ["signal", "process"] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = "2"
+
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.61.2", features = [
     "Win32_System_Threading",

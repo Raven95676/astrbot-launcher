@@ -130,6 +130,7 @@ dependencies = [
  "toml 0.9.11+spec-1.1.0",
  "uuid",
  "walkdir",
+ "webkit2gtk",
  "windows",
  "zip 7.4.0",
 ]

@@ -23,6 +23,8 @@ use tauri::Manager as _;
 use tauri_plugin_dialog::{DialogExt as _, MessageDialogButtons};
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_updater::UpdaterExt as _;
+#[cfg(target_os = "linux")]
+use webkit2gtk::{HardwareAccelerationPolicy, SettingsExt as _, WebViewExt as _};
 
 use commands::AppState;
 use config::{load_config, with_config_mut};
@@ -32,6 +34,9 @@ use instance::ProcessManager;
 #[allow(clippy::expect_used)]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+
     paths::ensure_data_dirs().expect("Failed to create data directories");
 
     let process_manager = Arc::new(ProcessManager::new());
@@ -70,6 +75,15 @@ pub fn run() {
             process_manager,
         })
         .setup(move |app| {
+            #[cfg(target_os = "linux")]
+            if let Some(main_webview) = app.get_webview_window("main") {
+                let _ = main_webview.with_webview(|webview| {
+                    if let Some(settings) = webview.inner().settings() {
+                        settings.set_hardware_acceleration_policy(HardwareAccelerationPolicy::Never);
+                    }
+                });
+            }
+
             pm_for_monitor.start_runtime_monitor();
             spawn_updater_check(app.handle().clone());
 
