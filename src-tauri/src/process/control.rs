@@ -114,23 +114,44 @@ pub fn force_kill(pid: u32) -> Result<()> {
 /// Send graceful signal to each PID, wait up to the timeout for all to exit,
 /// then force kill any that remain. Blocking.
 pub fn graceful_shutdown(pids: &[u32]) {
+    let mut failed_signal_pids = Vec::new();
+
     for &pid in pids {
         if is_process_alive(pid) {
             if let Err(e) = graceful_signal(pid) {
-                log::warn!("Graceful signal failed for PID {pid}: {e}");
+                log::warn!("Graceful signal failed for PID {pid}: {e}, will force kill immediately");
+                failed_signal_pids.push(pid);
             }
         }
     }
 
+    for &pid in &failed_signal_pids {
+        if is_process_alive(pid) {
+            if let Err(e) = force_kill(pid) {
+                log::error!("Failed to force kill PID {pid}: {e}");
+            }
+        }
+    }
+
+    let successful_pids: Vec<u32> = pids
+        .iter()
+        .copied()
+        .filter(|pid| !failed_signal_pids.contains(pid))
+        .collect();
+
+    if successful_pids.is_empty() || successful_pids.iter().all(|&pid| !is_process_alive(pid)) {
+        return;
+    }
+
     let deadline = Instant::now() + GRACEFUL_SHUTDOWN_TIMEOUT;
     while Instant::now() < deadline {
-        if pids.iter().all(|&pid| !is_process_alive(pid)) {
+        if successful_pids.iter().all(|&pid| !is_process_alive(pid)) {
             return;
         }
         std::thread::sleep(Duration::from_millis(500));
     }
 
-    for &pid in pids {
+    for &pid in &successful_pids {
         if is_process_alive(pid) {
             log::warn!(
                 "PID {pid} did not exit within {}s, force killing",
