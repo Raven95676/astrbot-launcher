@@ -1,38 +1,8 @@
 import { useEffect, useState } from 'react';
 import { MinusOutlined, BorderOutlined, BlockOutlined, CloseOutlined } from '@ant-design/icons';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { api } from '../api';
 
 export function TitleBar() {
-  const [isMacOS, setIsMacOS] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    api
-      .isMacOS()
-      .then((value) => {
-        if (mounted) {
-          setIsMacOS(value);
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setIsMacOS(false);
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  if (isMacOS === null) return null;
-  if (isMacOS) return null;
-
-  return <TitleBarInner />;
-}
-
-function TitleBarInner() {
   const [maximized, setMaximized] = useState(false);
   const appWindow = getCurrentWindow();
 

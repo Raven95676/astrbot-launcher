@@ -1,13 +1,15 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { attachConsole } from '@tauri-apps/plugin-log';
+import { api } from './api';
 import App from './App';
 
-// Attach console to receive Rust logs in browser devtools
-attachConsole();
+void attachConsole();
+
+const isMacOS = await api.isMacOS();
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <App isMacOS={isMacOS} />
   </React.StrictMode>
 );

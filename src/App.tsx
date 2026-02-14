@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Layout, Menu, ConfigProvider, App as AntdApp, theme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import {
@@ -11,11 +11,11 @@ import {
 import { ErrorBoundary, TitleBar } from './components';
 import { AntdStaticProvider } from './antdStatic';
 import { useAppStore, initEventListeners, cleanupEventListeners } from './stores';
-import Dashboard from './pages/Dashboard';
-import Versions from './pages/Versions';
-import Backup from './pages/Backup';
-import Advanced from './pages/Advanced';
-import WebUIView from './pages/WebUIView';
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Versions = lazy(() => import('./pages/Versions'));
+const Backup = lazy(() => import('./pages/Backup'));
+const Advanced = lazy(() => import('./pages/Advanced'));
+const WebUIView = lazy(() => import('./pages/WebUIView'));
 import './App.css';
 
 const { Sider, Content } = Layout;
@@ -54,7 +54,6 @@ function AppLayout() {
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <TitleBar />
       <Layout style={{ flex: 1, overflow: 'hidden' }}>
         <Sider
           width={180}
@@ -89,7 +88,7 @@ function AppLayout() {
   );
 }
 
-function App() {
+function App({ isMacOS }: { isMacOS: boolean }) {
   useEffect(() => {
     void initEventListeners();
     void useAppStore.getState().reloadSnapshot();
@@ -111,11 +110,14 @@ function App() {
     >
       <AntdApp>
         <AntdStaticProvider />
+        {!isMacOS && <TitleBar />}
         <BrowserRouter>
-          <Routes>
-            <Route path="/webui/:instanceId" element={<WebUIView />} />
-            <Route path="/*" element={<AppLayout />} />
-          </Routes>
+          <Suspense>
+            <Routes>
+              <Route path="/webui/:instanceId" element={<WebUIView />} />
+              <Route path="/*" element={<AppLayout />} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </AntdApp>
     </ConfigProvider>
