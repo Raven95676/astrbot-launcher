@@ -11,7 +11,6 @@ import type { InstanceStatus } from '../types';
 
 interface InstanceActionsProps {
   instance: InstanceStatus;
-  pythonInstalled: boolean;
   loading: boolean;
   isDeploying: boolean;
   isDeleting: boolean;
@@ -25,7 +24,6 @@ interface InstanceActionsProps {
 
 export function InstanceActions({
   instance,
-  pythonInstalled,
   loading,
   isDeploying,
   isDeleting,
@@ -66,12 +64,11 @@ export function InstanceActions({
           </Tooltip>
         </>
       ) : (
-        <Tooltip title={pythonInstalled ? '启动' : '请先在版本页面安装 Python'}>
+        <Tooltip title="启动">
           <Button
             type="text"
-            icon={<PlayCircleOutlined style={{ color: pythonInstalled ? '#52c41a' : undefined }} />}
+            icon={<PlayCircleOutlined style={{ color: '#52c41a' }} />}
             loading={loading || isDeploying}
-            disabled={!pythonInstalled}
             onClick={() => onStart(instance.id)}
           />
         </Tooltip>

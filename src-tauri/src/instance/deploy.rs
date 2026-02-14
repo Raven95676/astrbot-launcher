@@ -10,7 +10,7 @@ use crate::archive::extract_zip_flat;
 use crate::config::load_config;
 use crate::error::{AppError, Result};
 use crate::paths::{get_instance_core_dir, get_instance_venv_dir, get_venv_python};
-use crate::python::get_python_for_version;
+use crate::component::get_python_for_version;
 use crate::validation::validate_instance_id;
 
 /// Emit deployment progress event.

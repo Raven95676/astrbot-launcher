@@ -9,7 +9,6 @@ import { useAppStore } from '../stores';
 interface UseVersionsReturn {
   handleInstall: (release: GitHubRelease) => Promise<void>;
   handleUninstall: (version: InstalledVersion) => Promise<void>;
-  handleInstallPython: () => Promise<void>;
 }
 
 export function useVersions(): UseVersionsReturn {
@@ -23,11 +22,7 @@ export function useVersions(): UseVersionsReturn {
       startOperation(key);
       try {
         await reloadSnapshot();
-        const { pythonInstalled, versions } = useAppStore.getState();
-        if (!pythonInstalled) {
-          message.warning('请先安装 Python 运行时');
-          return;
-        }
+        const { versions } = useAppStore.getState();
         if (versions.some((v) => v.version === release.tag_name)) {
           message.info(`版本 ${release.tag_name} 已下载`);
           return;
@@ -69,36 +64,8 @@ export function useVersions(): UseVersionsReturn {
     [startOperation, finishOperation, reloadSnapshot]
   );
 
-  const handleInstallPython = useCallback(async () => {
-    const key = OPERATION_KEYS.installPython;
-    startOperation(key);
-    try {
-      await reloadSnapshot();
-      const { pythonInstalled } = useAppStore.getState();
-      if (pythonInstalled) {
-        message.info('Python 运行时已安装');
-        return;
-      }
-
-      const result = await api.installPython();
-      await reloadSnapshot();
-      const { pythonInstalled: installedAfter } = useAppStore.getState();
-      if (!installedAfter) {
-        message.error(`Python 安装未生效：${result}`);
-        return;
-      }
-
-      message.success(result);
-    } catch (error) {
-      handleApiError(error);
-    } finally {
-      finishOperation(key);
-    }
-  }, [startOperation, finishOperation, reloadSnapshot]);
-
   return {
     handleInstall,
     handleUninstall,
-    handleInstallPython,
   };
 }

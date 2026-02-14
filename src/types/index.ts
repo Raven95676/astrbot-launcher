@@ -22,6 +22,21 @@ export interface AppConfig {
 }
 
 // ========================================
+// Component Types
+// ========================================
+
+export interface ComponentStatus {
+  id: string;
+  installed: boolean;
+  display_name: string;
+  description: string;
+}
+
+export interface ComponentsSnapshot {
+  components: ComponentStatus[];
+}
+
+// ========================================
 // Instance Types
 // ========================================
 
@@ -37,7 +52,7 @@ export interface AppSnapshot {
   instances: InstanceStatus[];
   versions: InstalledVersion[];
   backups: BackupInfo[];
-  python_installed: boolean;
+  components: ComponentsSnapshot;
   config: AppConfig;
 }
 

@@ -27,6 +27,7 @@ import {
   ConfirmModal,
 } from '../components';
 import { handleApiError } from '../utils';
+import { isPythonAvailableForVersion, requiredPythonComponent } from '../utils/components';
 import { STATUS_MESSAGES, OPERATION_KEYS } from '../constants';
 
 const { Title } = Typography;
@@ -37,7 +38,6 @@ export default function Dashboard() {
   const instances = useAppStore((s) => s.instances);
   const versions = useAppStore((s) => s.versions);
   const config = useAppStore((s) => s.config);
-  const pythonInstalled = useAppStore((s) => s.pythonInstalled);
   const loading = useAppStore((s) => s.loading);
   const initialized = useAppStore((s) => s.initialized);
   const reloadSnapshot = useAppStore((s) => s.reloadSnapshot);
@@ -184,10 +184,21 @@ export default function Dashboard() {
   const handleStart = useCallback(
     async (id: string) => {
       const instance = instances.find((i) => i.id === id);
+      if (!instance) return;
+
+      // Check if the required Python component is installed
+      const { components } = useAppStore.getState();
+      if (!isPythonAvailableForVersion(instance.version, components)) {
+        const needed = requiredPythonComponent(instance.version);
+        const comp = components.find((c) => c.id === needed);
+        message.warning(`请先在版本页面安装 ${comp?.display_name ?? needed} 组件`);
+        return;
+      }
+
       const isDeployed = await api.isInstanceDeployed(id);
       const operationKey = OPERATION_KEYS.instance(id);
 
-      if (instance && !isDeployed) {
+      if (!isDeployed) {
         startDeploy(instance.name, 'start');
       }
 
@@ -388,7 +399,6 @@ export default function Dashboard() {
         return (
           <InstanceActions
             instance={record}
-            pythonInstalled={pythonInstalled}
             loading={operations[OPERATION_KEYS.instance(record.id)] || false}
             isDeploying={!!isDeploying}
             isDeleting={deleteOpen && instanceToDelete?.id === record.id}

@@ -4,8 +4,8 @@ export const OPERATION_KEYS = {
 
   installVersion: (tag: string) => `install:${tag}`,
   uninstallVersion: (version: string) => `uninstall:${version}`,
-  installPython: 'install-python',
-  reinstallPython: (version: '3.10' | '3.12') => `reinstall-python:${version}`,
+  installComponent: (componentId: string) => `install-component:${componentId}`,
+  reinstallComponent: (componentId: string) => `reinstall-component:${componentId}`,
 
   backupCreate: 'backup:create',
   backupRestore: 'backup:restore',

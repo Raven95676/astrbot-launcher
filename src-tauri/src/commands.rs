@@ -14,7 +14,8 @@ use crate::github::{self, GitHubRelease};
 use crate::instance::{self, InstanceStatus, ProcessManager};
 use crate::paths;
 use crate::platform;
-use crate::python;
+use crate::component;
+use crate::component::ComponentsSnapshot;
 
 fn sort_installed_versions_semver(versions: &mut [InstalledVersion]) {
     versions.sort_by(|a, b| {
@@ -46,7 +47,7 @@ pub async fn build_app_snapshot(process_manager: &ProcessManager) -> Result<AppS
         instances,
         versions: config_for_snapshot.installed_versions.clone(),
         backups,
-        python_installed: python::is_python_installed(),
+        components: component::build_components_snapshot(),
         config: config_for_snapshot,
     })
 }
@@ -62,7 +63,7 @@ pub async fn build_app_snapshot_from_disk(process_manager: &ProcessManager) -> R
         instances,
         versions: config_for_snapshot.installed_versions.clone(),
         backups,
-        python_installed: python::is_python_installed(),
+        components: component::build_components_snapshot(),
         config: config_for_snapshot,
     })
 }
@@ -82,7 +83,7 @@ pub struct AppSnapshot {
     pub instances: Vec<InstanceStatus>,
     pub versions: Vec<InstalledVersion>,
     pub backups: Vec<BackupInfo>,
-    pub python_installed: bool,
+    pub components: ComponentsSnapshot,
     pub config: AppConfig,
 }
 
@@ -157,7 +158,7 @@ pub async fn save_persist_instance_state(persist_instance_state: bool) -> Result
     })
 }
 
-// === Python ===
+// === Components ===
 
 #[tauri::command]
 pub fn is_instance_deployed(instance_id: &str) -> bool {
@@ -165,13 +166,23 @@ pub fn is_instance_deployed(instance_id: &str) -> bool {
 }
 
 #[tauri::command]
-pub async fn install_python(state: State<'_, AppState>) -> Result<String> {
-    python::install_python(&state.client).await
+pub async fn install_component(
+    state: State<'_, AppState>,
+    component_id: String,
+) -> Result<String> {
+    let id = component::ComponentId::from_str_id(&component_id)
+        .ok_or_else(|| AppError::python(format!("Unknown component: {}", component_id)))?;
+    component::install_component(&state.client, id).await
 }
 
 #[tauri::command]
-pub async fn reinstall_python(state: State<'_, AppState>, major_version: String) -> Result<String> {
-    python::reinstall_python(&state.client, &major_version).await
+pub async fn reinstall_component(
+    state: State<'_, AppState>,
+    component_id: String,
+) -> Result<String> {
+    let id = component::ComponentId::from_str_id(&component_id)
+        .ok_or_else(|| AppError::python(format!("Unknown component: {}", component_id)))?;
+    component::reinstall_component(&state.client, id).await
 }
 
 // === GitHub ===

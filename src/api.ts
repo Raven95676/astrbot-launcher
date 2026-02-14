@@ -15,6 +15,8 @@ export type {
   DeployProgress,
   DeployStep,
   DeployType,
+  ComponentStatus,
+  ComponentsSnapshot,
 } from './types';
 
 export const api = {
@@ -38,11 +40,11 @@ export const api = {
   isMacOS: () => invoke<boolean>('is_macos'),
 
   // ========================================
-  // Python
+  // Components
   // ========================================
-  installPython: () => invoke<string>('install_python'),
-  reinstallPython: (majorVersion: '3.10' | '3.12') =>
-    invoke<string>('reinstall_python', { majorVersion }),
+  installComponent: (componentId: string) => invoke<string>('install_component', { componentId }),
+  reinstallComponent: (componentId: string) =>
+    invoke<string>('reinstall_component', { componentId }),
 
   // ========================================
   // GitHub

@@ -10,6 +10,7 @@ import type {
   BackupInfo,
   DeployProgress,
   DeployState,
+  ComponentStatus,
 } from '../types';
 import { getErrorMessage } from '../utils';
 import { MODAL_CLOSE_DELAY_MS } from '../constants';
@@ -19,7 +20,7 @@ interface AppState {
   instances: InstanceStatus[];
   versions: InstalledVersion[];
   backups: BackupInfo[];
-  pythonInstalled: boolean;
+  components: ComponentStatus[];
   config: AppConfig | null;
   loading: boolean;
   initialized: boolean;
@@ -48,7 +49,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   instances: [],
   versions: [],
   backups: [],
-  pythonInstalled: false,
+  components: [],
   config: null,
   loading: false,
   initialized: false,
@@ -60,7 +61,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       instances: snapshot.instances,
       versions: snapshot.versions,
       backups: snapshot.backups,
-      pythonInstalled: snapshot.python_installed,
+      components: snapshot.components.components,
       config: snapshot.config,
       initialized: true,
     });

@@ -25,8 +25,7 @@ pub fn ensure_data_dirs() -> Result<()> {
     fs::create_dir_all(&base).map_err(|e| AppError::io(e.to_string()))?;
 
     let dirs = [
-        base.join("python"),
-        base.join("compat_python"),
+        base.join("components"),
         base.join("versions"),
         base.join("instances"),
         base.join("backups"),
@@ -75,14 +74,14 @@ pub fn get_backups_dir() -> PathBuf {
     get_data_dir().join("backups")
 }
 
-/// Python 3.12 directory (main Python).
-pub fn get_python_dir() -> PathBuf {
-    get_data_dir().join("python")
+/// Get the root components directory.
+pub fn get_components_dir() -> PathBuf {
+    get_data_dir().join("components")
 }
 
-/// Python 3.10 directory (compatibility Python).
-pub fn get_compat_python_dir() -> PathBuf {
-    get_data_dir().join("compat_python")
+/// Get a specific component's directory.
+pub fn get_component_dir(dir_name: &str) -> PathBuf {
+    get_components_dir().join(dir_name)
 }
 
 /// Get the path to the Python executable for a standalone Python directory.

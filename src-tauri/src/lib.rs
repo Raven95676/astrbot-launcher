@@ -9,7 +9,7 @@ mod instance;
 mod paths;
 mod platform;
 mod process;
-mod python;
+mod component;
 mod validation;
 
 use std::sync::Arc;
@@ -41,6 +41,7 @@ pub fn run() {
     }
 
     paths::ensure_data_dirs().expect("Failed to create data directories");
+    component::migrate_legacy_python_dirs();
 
     let process_manager = Arc::new(ProcessManager::new());
     let pm_for_exit = Arc::clone(&process_manager);
@@ -200,9 +201,9 @@ pub fn run() {
             commands::save_check_instance_update,
             commands::save_persist_instance_state,
             commands::is_macos,
-            // Python
-            commands::install_python,
-            commands::reinstall_python,
+            // Components
+            commands::install_component,
+            commands::reinstall_component,
             // GitHub
             commands::fetch_releases,
             // Version Management

@@ -34,9 +34,6 @@ export default function Advanced() {
   const [selectedDataInstance, setSelectedDataInstance] = useState<string | null>(null);
   const [selectedVenvInstance, setSelectedVenvInstance] = useState<string | null>(null);
   const [selectedPycacheInstance, setSelectedPycacheInstance] = useState<string | null>(null);
-  const [selectedPythonVersion, setSelectedPythonVersion] = useState<'3.10' | '3.12' | null>(
-    '3.12'
-  );
 
   // Modal state
   const [confirmModal, setConfirmModal] = useState<ConfirmModalType>(null);
@@ -217,22 +214,6 @@ export default function Advanced() {
       message.success('Python 缓存已清空');
       setSelectedPycacheInstance(null);
       setConfirmModal(null);
-    } catch (error) {
-      handleApiError(error);
-    } finally {
-      finishOperation(key);
-    }
-  };
-
-  const handleReinstallPython = async () => {
-    if (!selectedPythonVersion) return;
-
-    const key = OPERATION_KEYS.reinstallPython(selectedPythonVersion);
-    startOperation(key);
-    try {
-      const result = await api.reinstallPython(selectedPythonVersion);
-      await reloadSnapshot({ throwOnError: true });
-      message.success(result);
     } catch (error) {
       handleApiError(error);
     } finally {
@@ -471,21 +452,6 @@ export default function Advanced() {
               onChange={setSelectedPycacheInstance}
               onExecute={() => setConfirmModal('clearPycache')}
               disabled={confirmModal === 'clearPycache'}
-            />
-            <ActionRow
-              label="重新安装 Python"
-              options={[
-                { label: 'Python 3.12', value: '3.12' },
-                { label: 'Python 3.10', value: '3.10' },
-              ]}
-              value={selectedPythonVersion}
-              onChange={(v) => setSelectedPythonVersion(v as '3.10' | '3.12' | null)}
-              onExecute={handleReinstallPython}
-              loading={
-                selectedPythonVersion
-                  ? operations[OPERATION_KEYS.reinstallPython(selectedPythonVersion)]
-                  : false
-              }
             />
           </Space>
         </div>

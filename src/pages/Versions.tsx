@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Card, Space, Tag, Typography, List, Drawer, Alert, Tooltip } from 'antd';
+import { Button, Card, Space, Tag, Typography, List, Drawer, Tooltip } from 'antd';
 import {
   DownloadOutlined,
   DeleteOutlined,
@@ -7,21 +7,27 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import type { InstalledVersion, GitHubRelease } from '../api';
+import { api } from '../api';
+import { message } from '../antdStatic';
 import { useReleases } from '../hooks';
 import { useVersions } from '../hooks/useVersions';
 import { useAppStore } from '../stores';
 import { ConfirmModal } from '../components';
 import { OPERATION_KEYS } from '../constants';
+import { handleApiError } from '../utils';
 
 const { Title, Text, Paragraph } = Typography;
 
 export default function Versions() {
   const versions = useAppStore((s) => s.versions);
-  const pythonInstalled = useAppStore((s) => s.pythonInstalled);
+  const components = useAppStore((s) => s.components);
   const config = useAppStore((s) => s.config);
   const appLoading = useAppStore((s) => s.loading);
   const rebuildSnapshotFromDisk = useAppStore((s) => s.rebuildSnapshotFromDisk);
+  const reloadSnapshot = useAppStore((s) => s.reloadSnapshot);
   const operations = useAppStore((s) => s.operations);
+  const startOperation = useAppStore((s) => s.startOperation);
+  const finishOperation = useAppStore((s) => s.finishOperation);
 
   const [detailRelease, setDetailRelease] = useState<GitHubRelease | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -30,7 +36,7 @@ export default function Versions() {
 
   const { releases, loading: releasesLoading, fetchReleases } = useReleases();
 
-  const { handleInstall, handleUninstall: doUninstall, handleInstallPython } = useVersions();
+  const { handleInstall, handleUninstall: doUninstall } = useVersions();
 
   const refreshAll = useCallback(
     async (forceRefresh = false) => {
@@ -49,6 +55,40 @@ export default function Versions() {
     setUninstallOpen(false);
     setVersionToUninstall(null);
   };
+
+  const handleInstallComponent = useCallback(
+    async (componentId: string) => {
+      const key = OPERATION_KEYS.installComponent(componentId);
+      startOperation(key);
+      try {
+        const result = await api.installComponent(componentId);
+        await reloadSnapshot({ throwOnError: true });
+        message.success(result);
+      } catch (error) {
+        handleApiError(error);
+      } finally {
+        finishOperation(key);
+      }
+    },
+    [startOperation, finishOperation, reloadSnapshot]
+  );
+
+  const handleReinstallComponent = useCallback(
+    async (componentId: string) => {
+      const key = OPERATION_KEYS.reinstallComponent(componentId);
+      startOperation(key);
+      try {
+        const result = await api.reinstallComponent(componentId);
+        await reloadSnapshot({ throwOnError: true });
+        message.success(result);
+      } catch (error) {
+        handleApiError(error);
+      } finally {
+        finishOperation(key);
+      }
+    },
+    [startOperation, finishOperation, reloadSnapshot]
+  );
 
   const isInstalled = (tagName: string) => versions.some((v) => v.version === tagName);
   const availableReleases = releases.filter((r) => !isInstalled(r.tag_name));
@@ -76,29 +116,62 @@ export default function Versions() {
         </Button>
       </div>
 
-      {/* Python Status */}
-      {config &&
-        (pythonInstalled ? (
-          <Alert title="Python 运行时已就绪" type="success" showIcon style={{ marginBottom: 16 }} />
-        ) : (
-          <Alert
-            title="需要安装 Python 运行时以启动 AstrBot 实例"
-            type="warning"
-            showIcon
-            style={{ marginBottom: 16 }}
-            action={
-              <Button
-                type="primary"
-                size="small"
-                icon={<DownloadOutlined />}
-                loading={operations[OPERATION_KEYS.installPython] || false}
-                onClick={handleInstallPython}
-              >
-                安装 Python
-              </Button>
-            }
+      {/* Component Management */}
+      {config && (
+        <Card title="组件管理" size="small" style={{ marginBottom: 16 }}>
+          <List
+            dataSource={components}
+            renderItem={(comp) => {
+              const installKey = OPERATION_KEYS.installComponent(comp.id);
+              const reinstallKey = OPERATION_KEYS.reinstallComponent(comp.id);
+              const isInstalling = operations[installKey] || false;
+              const isReinstalling = operations[reinstallKey] || false;
+
+              return (
+                <List.Item
+                  actions={
+                    comp.installed
+                      ? [
+                          <Tooltip title="重新安装" key="reinstall">
+                            <Button
+                              type="text"
+                              icon={<ReloadOutlined />}
+                              loading={isReinstalling}
+                              onClick={() => handleReinstallComponent(comp.id)}
+                            />
+                          </Tooltip>,
+                        ]
+                      : [
+                          <Button
+                            type="primary"
+                            size="small"
+                            icon={<DownloadOutlined />}
+                            loading={isInstalling}
+                            onClick={() => handleInstallComponent(comp.id)}
+                            key="install"
+                          >
+                            安装
+                          </Button>,
+                        ]
+                  }
+                >
+                  <List.Item.Meta
+                    title={
+                      <Space>
+                        {comp.display_name}
+                        <Tag color={comp.installed ? 'green' : undefined}>
+                          {comp.installed ? '已安装' : '未安装'}
+                        </Tag>
+                      </Space>
+                    }
+                    description={comp.description}
+                  />
+                </List.Item>
+              );
+            }}
           />
-        ))}
+        </Card>
+      )}
 
       {/* Installed Versions */}
       <Card title="已下载的版本" size="small" style={{ marginBottom: 16 }}>
@@ -161,6 +234,7 @@ export default function Versions() {
           }}
           renderItem={(release) => {
             const key = release.tag_name;
+
             return (
               <List.Item
                 actions={[
@@ -174,12 +248,11 @@ export default function Versions() {
                       }}
                     />
                   </Tooltip>,
-                  <Tooltip title={pythonInstalled ? '下载' : '请先安装 Python'} key="install">
+                  <Tooltip title="下载" key="install">
                     <Button
                       type="text"
                       icon={<DownloadOutlined />}
                       loading={operations[OPERATION_KEYS.installVersion(key)]}
-                      disabled={!pythonInstalled}
                       onClick={() => handleInstall(release)}
                     />
                   </Tooltip>,
