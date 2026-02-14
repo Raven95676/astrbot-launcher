@@ -3,11 +3,9 @@ import {
   Button,
   Space,
   Table,
-  Tag,
   Modal,
   Form,
   Select,
-  Checkbox,
   Typography,
   Empty,
   Alert,
@@ -38,7 +36,7 @@ export default function Backup() {
   const [backupToDelete, setBackupToDelete] = useState<BackupInfo | null>(null);
   const [createForm] = Form.useForm();
 
-  const handleCreate = async (values: { instanceId: string; includeVenv: boolean }) => {
+  const handleCreate = async (values: { instanceId: string }) => {
     const key = OPERATION_KEYS.backupCreate;
     startOperation(key);
     try {
@@ -54,7 +52,7 @@ export default function Backup() {
         return;
       }
 
-      await api.createBackup(values.instanceId, values.includeVenv);
+      await api.createBackup(values.instanceId);
       await reloadSnapshot({ throwOnError: true });
       message.success('备份创建成功');
       setCreateOpen(false);
@@ -173,24 +171,6 @@ export default function Backup() {
       render: (v: string) => new Date(v).toLocaleString(),
     },
     {
-      title: '包含',
-      key: 'includes',
-      width: 120,
-      render: (_: unknown, record: BackupInfo) => (
-        <Space>
-          {record.metadata.includes_data && <Tag>数据</Tag>}
-          {record.metadata.includes_venv && (
-            <Tag>
-              虚拟环境
-              {record.metadata.arch_target
-                ? ` (${record.metadata.arch_target.split('-')[0]}-${record.metadata.arch_target.split('-').slice(-1)[0]})`
-                : ''}
-            </Tag>
-          )}
-        </Space>
-      ),
-    },
-    {
       title: '操作',
       key: 'action',
       width: 120,
@@ -276,12 +256,6 @@ export default function Backup() {
           >
             <Select placeholder="选择要备份的实例" options={instanceOptions} />
           </Form.Item>
-          <Form.Item name="includeVenv" valuePropName="checked" initialValue={false}>
-            <Checkbox>包含虚拟环境</Checkbox>
-          </Form.Item>
-          <Text type="secondary">
-            包含虚拟环境会增加备份文件大小，并且限定平台，但恢复后无需重新安装依赖
-          </Text>
         </Form>
       </Modal>
 
@@ -302,7 +276,6 @@ export default function Backup() {
               <br />
               <Text type="secondary">
                 注意: 恢复将覆盖原实例的数据
-                {selectedBackup.metadata.includes_venv ? '和虚拟环境' : ''}
               </Text>
             </>
           )

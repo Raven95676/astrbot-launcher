@@ -125,8 +125,11 @@ pub struct BackupMetadata {
     pub instance_name: String,
     pub instance_id: String,
     pub version: String,
+    #[serde(default)]
     pub includes_venv: bool,
+    #[serde(default = "default_true")]
     pub includes_data: bool,
+    #[serde(default)]
     pub arch_target: String,
 }
 

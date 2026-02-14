@@ -269,15 +269,11 @@ pub async fn get_instance_port(instance_id: String, state: State<'_, AppState>) 
 // === Backup ===
 
 #[tauri::command]
-pub async fn create_backup(
-    instance_id: String,
-    include_venv: bool,
-    state: State<'_, AppState>,
-) -> Result<String> {
+pub async fn create_backup(instance_id: String, state: State<'_, AppState>) -> Result<String> {
     if state.process_manager.is_running(&instance_id).await {
         return Err(AppError::instance_running());
     }
-    backup::create_backup(&instance_id, include_venv)
+    backup::create_backup(&instance_id)
 }
 
 #[tauri::command]

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use reqwest::Client;
 
-use crate::archive::extract_tar_gz;
+use crate::archive::extract_tar_gz_flat;
 use crate::config::load_config;
 use crate::download::download_file;
 use crate::error::{AppError, Result};
@@ -109,7 +109,7 @@ async fn install_python_version(
     download_file(client, &url, &archive_path).await?;
 
     // Extract to target_dir, top-level directory in archive will be stripped
-    extract_tar_gz(&archive_path, target_dir)?;
+    extract_tar_gz_flat(&archive_path, target_dir)?;
 
     let python_exe = get_python_exe_path(target_dir);
     if !python_exe.exists() {

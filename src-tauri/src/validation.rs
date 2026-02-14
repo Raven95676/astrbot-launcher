@@ -100,6 +100,9 @@ fn ensure_and_canonicalize_dir(path: &Path, label: &str) -> Result<PathBuf> {
 fn is_backup_filename(path: &Path) -> bool {
     path.file_name()
         .and_then(|name| name.to_str())
-        .map(|name| name.to_ascii_lowercase().ends_with(".tar.gz"))
+        .map(|name| {
+            let lower = name.to_ascii_lowercase();
+            lower.ends_with(".tar.gz") || lower.ends_with(".zip")
+        })
         .unwrap_or(false)
 }

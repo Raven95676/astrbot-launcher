@@ -89,8 +89,6 @@ export interface BackupMetadata {
   instance_name: string;
   instance_id: string;
   version: string;
-  includes_venv: boolean;
-  includes_data: boolean;
   arch_target: string;
 }
 

@@ -6,7 +6,7 @@ use tauri::{AppHandle, Emitter as _};
 use tokio::process::Command;
 
 use super::types::DeployProgress;
-use crate::archive::extract_zip;
+use crate::archive::extract_zip_flat;
 use crate::config::load_config;
 use crate::error::{AppError, Result};
 use crate::paths::{get_instance_core_dir, get_instance_venv_dir, get_venv_python};
@@ -84,7 +84,7 @@ pub async fn deploy_instance(instance_id: &str, app_handle: &AppHandle) -> Resul
         std::fs::create_dir_all(&core_dir)
             .map_err(|e| AppError::io(format!("Failed to create core dir: {}", e)))?;
 
-        extract_zip(&zip_path, &core_dir)?;
+        extract_zip_flat(&zip_path, &core_dir)?;
         emit_progress(app_handle, instance_id, "extract", "代码解压完成", 30);
     }
 

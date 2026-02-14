@@ -119,7 +119,9 @@ pub fn graceful_shutdown(pids: &[u32]) {
     for &pid in pids {
         if is_process_alive(pid) {
             if let Err(e) = graceful_signal(pid) {
-                log::warn!("Graceful signal failed for PID {pid}: {e}, will force kill immediately");
+                log::warn!(
+                    "Graceful signal failed for PID {pid}: {e}, will force kill immediately"
+                );
                 failed_signal_pids.push(pid);
             }
         }

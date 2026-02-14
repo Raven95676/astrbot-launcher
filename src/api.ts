@@ -83,8 +83,8 @@ export const api = {
   // ========================================
   // Backup
   // ========================================
-  createBackup: (instanceId: string, includeVenv: boolean) =>
-    invoke<string>('create_backup', { instanceId, includeVenv }),
+  createBackup: (instanceId: string) =>
+    invoke<string>('create_backup', { instanceId }),
   restoreBackup: (backupPath: string) => invoke<void>('restore_backup', { backupPath }),
   deleteBackup: (backupPath: string) => invoke<void>('delete_backup', { backupPath }),
 };
