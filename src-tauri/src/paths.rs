@@ -41,6 +41,11 @@ pub fn get_instance_dir(instance_id: &str) -> PathBuf {
     get_data_dir().join("instances").join(instance_id)
 }
 
+/// Get the deployment marker file path for an instance.
+pub fn get_instance_deploy_marker(instance_id: &str) -> PathBuf {
+    get_instance_dir(instance_id).join(".deployed")
+}
+
 /// Get the core directory for an instance.
 pub fn get_instance_core_dir(instance_id: &str) -> PathBuf {
     get_instance_dir(instance_id).join("core")
@@ -53,6 +58,11 @@ pub fn get_instance_venv_dir(instance_id: &str) -> PathBuf {
 
 /// Check if an instance is fully deployed
 pub fn is_instance_deployed(instance_id: &str) -> bool {
+    let marker = get_instance_deploy_marker(instance_id);
+    if !marker.exists() {
+        return false;
+    }
+
     let core_dir = get_instance_core_dir(instance_id);
     let venv_dir = get_instance_venv_dir(instance_id);
     let venv_python = get_venv_python(&venv_dir);
@@ -116,9 +126,7 @@ pub fn build_venv_path(venv_python: &Path) -> Result<OsString> {
         .ok_or_else(|| AppError::io("Invalid venv python path"))?;
     let mut paths = vec![venv_bin.to_path_buf()];
     if let Some(existing_path) = env::var_os("PATH") {
-        paths.extend(
-            env::split_paths(&existing_path).filter(|p| p.as_path() != venv_bin),
-        );
+        paths.extend(env::split_paths(&existing_path).filter(|p| p.as_path() != venv_bin));
     }
     env::join_paths(paths).map_err(|e| AppError::io(format!("Failed to build venv PATH: {}", e)))
 }

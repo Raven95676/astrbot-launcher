@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use tauri::AppHandle;
 
-use super::deploy::{deploy_instance, emit_progress};
+use super::deploy::{deploy_instance_with_version, emit_progress, remove_deploy_marker};
 use super::types::{CmdConfig, InstanceStatus};
 use crate::backup::{create_backup, delete_backup, restore_data_to_instance};
 use crate::config::{load_config, with_config_mut, AppConfig, InstanceConfig};
@@ -128,7 +128,7 @@ pub async fn delete_instance(
 
 /// Update an instance's name, port, or version.
 /// If version changes, performs the full upgrade/downgrade pipeline:
-/// backup → update config → clear → deploy → restore data → cleanup → done.
+/// backup → clear → deploy → restore data → update config → cleanup → done.
 /// Does NOT auto-start the instance.
 pub async fn update_instance(
     instance_id: &str,
@@ -140,20 +140,22 @@ pub async fn update_instance(
     validate_instance_id(instance_id)?;
 
     // Determine whether this is a version change
-    let new_version = if let Some(v) = version {
+    let new_version = {
         let config = load_config()?;
         let instance = config
             .instances
             .get(instance_id)
             .ok_or_else(|| AppError::instance_not_found(instance_id))?;
-        if instance.version != v {
-            ensure_version_installed(&config, v)?;
-            Some(v.to_string())
+        if let Some(v) = version {
+            if instance.version != v {
+                ensure_version_installed(&config, v)?;
+                Some(v.to_string())
+            } else {
+                None
+            }
         } else {
             None
         }
-    } else {
-        None
     };
 
     if let Some(ref new_version) = new_version {
@@ -169,7 +171,33 @@ pub async fn update_instance(
         };
         emit_progress(app_handle, instance_id, "backup", "数据备份完成", 10);
 
-        // Update config(version + optional name/port)
+        // Clear core_dir and venv_dir
+        let core_dir = get_instance_core_dir(instance_id);
+        if core_dir.exists() {
+            std::fs::remove_dir_all(&core_dir)
+                .map_err(|e| AppError::io(format!("Failed to remove core directory {:?}: {}", core_dir, e)))?;
+        }
+        let venv_dir = get_instance_venv_dir(instance_id);
+        if venv_dir.exists() {
+            std::fs::remove_dir_all(&venv_dir)
+                .map_err(|e| AppError::io(format!("Failed to remove venv directory {:?}: {}", venv_dir, e)))?;
+        }
+
+        // Ensure we don't treat partial state as deployed during update
+        remove_deploy_marker(instance_id)?;
+
+        // Deploy(internally emits extract 10-30%, venv 40-50%, deps 60-90%)
+        deploy_instance_with_version(instance_id, new_version, app_handle).await?;
+
+        // Restore data from backup
+        if let Some(ref bp) = backup_path {
+            emit_progress(app_handle, instance_id, "restore", "正在还原数据...", 92);
+            restore_data_to_instance(bp, instance_id)?;
+            emit_progress(app_handle, instance_id, "restore", "数据还原完成", 95);
+        }
+
+        // Update config(version + optional name/port) after the operation completes successfully.
+        // This prevents "config says new version" while the deployment hasn't fully finished.
         let name_owned = name.map(|n| n.to_string());
         let new_version_clone = new_version.clone();
         let port_copy = port;
@@ -188,32 +216,6 @@ pub async fn update_instance(
             }
             Ok(())
         })?;
-
-        // Clear core_dir and venv_dir
-        let core_dir = get_instance_core_dir(instance_id);
-        if core_dir.exists() {
-            if let Err(e) = std::fs::remove_dir_all(&core_dir) {
-                log::warn!("Failed to remove core directory {:?}: {}", core_dir, e);
-            }
-        }
-        let venv_dir = get_instance_venv_dir(instance_id);
-        if venv_dir.exists() {
-            if let Err(e) = std::fs::remove_dir_all(&venv_dir) {
-                log::warn!("Failed to remove venv directory {:?}: {}", venv_dir, e);
-            }
-        }
-
-        // Deploy(internally emits extract 10-30%, venv 40-50%, deps 60-90%)
-        deploy_instance(instance_id, app_handle).await?;
-
-        // Restore data from backup
-        if let Some(ref bp) = backup_path {
-            emit_progress(app_handle, instance_id, "restore", "正在还原数据...", 92);
-            if let Err(e) = restore_data_to_instance(bp, instance_id) {
-                log::warn!("Failed to restore data from backup: {}", e);
-            }
-            emit_progress(app_handle, instance_id, "restore", "数据还原完成", 95);
-        }
 
         // Delete auto-backup
         if let Some(ref bp) = backup_path {

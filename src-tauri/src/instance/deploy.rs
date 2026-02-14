@@ -1,5 +1,6 @@
 //! Instance deployment functionality.
 
+use std::fs;
 use std::path::Path;
 
 use tauri::{AppHandle, Emitter as _};
@@ -7,10 +8,13 @@ use tokio::process::Command;
 
 use super::types::DeployProgress;
 use crate::archive::extract_zip_flat;
+use crate::component::get_python_for_version;
 use crate::config::load_config;
 use crate::error::{AppError, Result};
-use crate::paths::{get_instance_core_dir, get_instance_venv_dir, get_venv_python};
-use crate::component::get_python_for_version;
+use crate::paths::{
+    get_instance_core_dir, get_instance_deploy_marker, get_instance_venv_dir, get_venv_python,
+    is_instance_deployed,
+};
 use crate::validation::validate_instance_id;
 
 /// Emit deployment progress event.
@@ -34,19 +38,35 @@ pub fn emit_progress(
 
 /// Deploy an instance by extracting the version zip and setting up venv.
 pub async fn deploy_instance(instance_id: &str, app_handle: &AppHandle) -> Result<()> {
-    validate_instance_id(instance_id)?;
-
     let config = load_config()?;
-    let instance = config
+    let version = config
         .instances
         .get(instance_id)
-        .ok_or_else(|| AppError::instance_not_found(instance_id))?;
+        .ok_or_else(|| AppError::instance_not_found(instance_id))?
+        .version
+        .clone();
+    deploy_instance_with_version(instance_id, &version, app_handle).await
+}
 
+/// Deploy an instance using the provided target version.
+pub async fn deploy_instance_with_version(
+    instance_id: &str,
+    version: &str,
+    app_handle: &AppHandle,
+) -> Result<()> {
+    validate_instance_id(instance_id)?;
+
+    let was_deployed = is_instance_deployed(instance_id);
+
+    // Any new deployment attempt starts from "not deployed" state.
+    remove_deploy_marker(instance_id)?;
+
+    let config = load_config()?;
     let installed = config
         .installed_versions
         .iter()
-        .find(|v| v.version == instance.version)
-        .ok_or_else(|| AppError::version_not_found(&instance.version))?;
+        .find(|v| v.version == version)
+        .ok_or_else(|| AppError::version_not_found(version))?;
 
     let zip_path = std::path::PathBuf::from(&installed.zip_path);
     if !zip_path.exists() {
@@ -59,9 +79,11 @@ pub async fn deploy_instance(instance_id: &str, app_handle: &AppHandle) -> Resul
     let core_dir = get_instance_core_dir(instance_id);
     let venv_dir = get_instance_venv_dir(instance_id);
 
-    // Extract zip (skip if code already exists)
+    // Extract zip.
+    // We only skip extraction when the previous deployment was fully valid.
+    // If marker is missing, force extraction to self-heal partial deployments.
     let main_py = core_dir.join("main.py");
-    if main_py.exists() {
+    if was_deployed && main_py.exists() {
         log::info!(
             "Instance {} code already exists, skipping extraction",
             instance_id
@@ -76,13 +98,9 @@ pub async fn deploy_instance(instance_id: &str, app_handle: &AppHandle) -> Resul
     } else {
         emit_progress(app_handle, instance_id, "extract", "正在解压代码...", 10);
 
-        if core_dir.exists() {
-            if let Err(e) = std::fs::remove_dir_all(&core_dir) {
-                log::warn!("Failed to remove old core directory {:?}: {}", core_dir, e);
-            }
-        }
-        std::fs::create_dir_all(&core_dir)
+        fs::create_dir_all(&core_dir)
             .map_err(|e| AppError::io(format!("Failed to create core dir: {}", e)))?;
+        clear_core_except_data(&core_dir)?;
 
         extract_zip_flat(&zip_path, &core_dir)?;
         emit_progress(app_handle, instance_id, "extract", "代码解压完成", 30);
@@ -90,7 +108,7 @@ pub async fn deploy_instance(instance_id: &str, app_handle: &AppHandle) -> Resul
 
     // Create venv
     emit_progress(app_handle, instance_id, "venv", "正在创建虚拟环境...", 40);
-    create_venv(&venv_dir, &instance.version).await?;
+    create_venv(&venv_dir, version).await?;
     emit_progress(app_handle, instance_id, "venv", "虚拟环境创建完成", 50);
 
     // Install requirements
@@ -99,9 +117,65 @@ pub async fn deploy_instance(instance_id: &str, app_handle: &AppHandle) -> Resul
     install_requirements(&venv_python, &core_dir).await?;
     emit_progress(app_handle, instance_id, "deps", "依赖安装完成", 90);
 
+    write_deploy_marker(instance_id, version)?;
+
     // Note: "done" is emitted by start_instance after the instance is truly running
 
     Ok(())
+}
+
+fn clear_core_except_data(core_dir: &Path) -> Result<()> {
+    if !core_dir.exists() {
+        return Ok(());
+    }
+
+    let entries = fs::read_dir(core_dir).map_err(|e| {
+        AppError::io(format!(
+            "Failed to read core directory {:?}: {}",
+            core_dir, e
+        ))
+    })?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| AppError::io(e.to_string()))?;
+        if entry.file_name() == "data" {
+            continue;
+        }
+
+        let path = entry.path();
+        let file_type = entry.file_type().map_err(|e| AppError::io(e.to_string()))?;
+
+        if file_type.is_dir() {
+            fs::remove_dir_all(&path).map_err(|e| {
+                AppError::io(format!("Failed to clear directory {:?}: {}", path, e))
+            })?;
+        } else {
+            fs::remove_file(&path)
+                .map_err(|e| AppError::io(format!("Failed to clear file {:?}: {}", path, e)))?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Remove deployment marker file. Missing marker is treated as success.
+pub fn remove_deploy_marker(instance_id: &str) -> Result<()> {
+    let marker = get_instance_deploy_marker(instance_id);
+    if marker.exists() {
+        fs::remove_file(&marker)
+            .map_err(|e| AppError::io(format!("Failed to remove deployment marker {:?}: {}", marker, e)))?;
+    }
+    Ok(())
+}
+
+fn write_deploy_marker(instance_id: &str, version: &str) -> Result<()> {
+    let marker = get_instance_deploy_marker(instance_id);
+    if let Some(parent) = marker.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| AppError::io(format!("Failed to create marker directory: {}", e)))?;
+    }
+    fs::write(&marker, format!("version={}\n", version))
+        .map_err(|e| AppError::io(format!("Failed to write deployment marker: {}", e)))
 }
 
 /// Create a virtual environment using the appropriate Python for the version.
@@ -114,10 +188,6 @@ async fn create_venv(venv_dir: &Path, version: &str) -> Result<()> {
             return Ok(());
         }
         // Venv directory exists but Python executable is missing or corrupted, remove and recreate
-        log::warn!(
-            "Venv at {:?} is corrupted (python not found), recreating",
-            venv_dir
-        );
         if let Err(e) = std::fs::remove_dir_all(venv_dir) {
             return Err(AppError::python(format!(
                 "Failed to remove corrupted venv: {}",

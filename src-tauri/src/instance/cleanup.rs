@@ -4,6 +4,7 @@ use std::path::Path;
 
 use walkdir::WalkDir;
 
+use super::deploy::remove_deploy_marker;
 use crate::error::{AppError, Result};
 use crate::paths::{get_instance_core_dir, get_instance_venv_dir};
 use crate::validation::validate_instance_id;
@@ -31,6 +32,7 @@ pub fn clear_instance_venv(instance_id: &str) -> Result<()> {
         std::fs::remove_dir_all(&venv_dir)
             .map_err(|e| AppError::io(format!("Failed to clear venv: {}", e)))?;
     }
+    remove_deploy_marker(instance_id)?;
     Ok(())
 }
 
