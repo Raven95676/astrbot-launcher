@@ -1,5 +1,7 @@
 //! Centralized path utilities for the application.
 
+use std::env;
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -106,4 +108,18 @@ pub fn get_venv_python(venv_dir: &Path) -> PathBuf {
     {
         venv_dir.join("bin").join("python")
     }
+}
+
+/// Build PATH as `venv bin/scripts + existing PATH`.
+pub fn build_venv_path(venv_python: &Path) -> Result<OsString> {
+    let venv_bin = venv_python
+        .parent()
+        .ok_or_else(|| AppError::io("Invalid venv python path"))?;
+    let mut paths = vec![venv_bin.to_path_buf()];
+    if let Some(existing_path) = env::var_os("PATH") {
+        paths.extend(
+            env::split_paths(&existing_path).filter(|p| p.as_path() != venv_bin),
+        );
+    }
+    env::join_paths(paths).map_err(|e| AppError::io(format!("Failed to build venv PATH: {}", e)))
 }

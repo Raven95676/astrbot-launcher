@@ -11,7 +11,8 @@ use super::deploy::{deploy_instance, emit_progress};
 use crate::config::load_config;
 use crate::error::{AppError, Result};
 use crate::paths::{
-    get_instance_core_dir, get_instance_venv_dir, get_venv_python, is_instance_deployed,
+    build_venv_path, get_instance_core_dir, get_instance_venv_dir, get_venv_python,
+    is_instance_deployed,
 };
 use crate::process::{
     check_port_available, find_available_port, force_kill, graceful_shutdown, ProcessManager,
@@ -65,6 +66,7 @@ pub async fn start_instance(
     }
 
     // Build command with environment variables
+    let path_with_venv = build_venv_path(&venv_python)?;
     let mut cmd = Command::new(&venv_python);
     cmd.arg(&main_py)
         .current_dir(&core_dir)
@@ -72,6 +74,9 @@ pub async fn start_instance(
         .env("DASHBOARD_PORT", port.to_string())
         .env("PYTHONUNBUFFERED", "1")
         .env("PYTHONIOENCODING", "utf-8")
+        .env("VIRTUAL_ENV", &venv_dir)
+        .env("PATH", path_with_venv)
+        .env_remove("PYTHONHOME")
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
 
