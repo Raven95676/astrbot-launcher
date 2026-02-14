@@ -20,7 +20,7 @@ export default function Versions() {
   const pythonInstalled = useAppStore((s) => s.pythonInstalled);
   const config = useAppStore((s) => s.config);
   const appLoading = useAppStore((s) => s.loading);
-  const reloadSnapshot = useAppStore((s) => s.reloadSnapshot);
+  const rebuildSnapshotFromDisk = useAppStore((s) => s.rebuildSnapshotFromDisk);
   const operations = useAppStore((s) => s.operations);
 
   const [detailRelease, setDetailRelease] = useState<GitHubRelease | null>(null);
@@ -34,9 +34,9 @@ export default function Versions() {
 
   const refreshAll = useCallback(
     async (forceRefresh = false) => {
-      await Promise.all([reloadSnapshot(), fetchReleases(forceRefresh)]);
+      await Promise.all([rebuildSnapshotFromDisk(), fetchReleases(forceRefresh)]);
     },
-    [reloadSnapshot, fetchReleases]
+    [rebuildSnapshotFromDisk, fetchReleases]
   );
 
   useEffect(() => {

@@ -22,6 +22,7 @@ export const api = {
   // Snapshot
   // ========================================
   getAppSnapshot: () => invoke<AppSnapshot>('get_app_snapshot'),
+  rebuildAppSnapshot: () => invoke<AppSnapshot>('rebuild_app_snapshot'),
 
   // ========================================
   // Config

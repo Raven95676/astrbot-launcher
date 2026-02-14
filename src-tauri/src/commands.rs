@@ -5,7 +5,9 @@ use reqwest::Client;
 use tauri::{AppHandle, State};
 
 use crate::backup;
-use crate::config::{load_config, with_config_mut, AppConfig, BackupInfo, InstalledVersion};
+use crate::config::{
+    load_config, reload_config, with_config_mut, AppConfig, BackupInfo, InstalledVersion,
+};
 use crate::download;
 use crate::error::{AppError, Result};
 use crate::github::{self, GitHubRelease};
@@ -49,9 +51,30 @@ pub async fn build_app_snapshot(process_manager: &ProcessManager) -> Result<AppS
     })
 }
 
+pub async fn build_app_snapshot_from_disk(process_manager: &ProcessManager) -> Result<AppSnapshot> {
+    let config = reload_config()?;
+    let instances = instance::list_instances(process_manager).await?;
+    let backups = backup::list_backups()?;
+    let mut config_for_snapshot = (*config).clone();
+    sort_installed_versions_semver(&mut config_for_snapshot.installed_versions);
+
+    Ok(AppSnapshot {
+        instances,
+        versions: config_for_snapshot.installed_versions.clone(),
+        backups,
+        python_installed: python::is_python_installed(),
+        config: config_for_snapshot,
+    })
+}
+
 #[tauri::command]
 pub async fn get_app_snapshot(state: State<'_, AppState>) -> Result<AppSnapshot> {
     build_app_snapshot(&state.process_manager).await
+}
+
+#[tauri::command]
+pub async fn rebuild_app_snapshot(state: State<'_, AppState>) -> Result<AppSnapshot> {
+    build_app_snapshot_from_disk(&state.process_manager).await
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

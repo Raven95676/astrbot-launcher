@@ -34,6 +34,7 @@ interface AppState {
   hydrateSnapshot: (snapshot: AppSnapshot) => void;
   refresh: () => Promise<void>;
   reloadSnapshot: (options?: { throwOnError?: boolean }) => Promise<void>;
+  rebuildSnapshotFromDisk: (options?: { throwOnError?: boolean }) => Promise<void>;
   startOperation: (key: string) => void;
   finishOperation: (key: string) => void;
   isOperationActive: (key: string) => boolean;
@@ -86,6 +87,26 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ loading: true });
     try {
       const snapshot = await api.getAppSnapshot();
+      get().hydrateSnapshot(snapshot);
+    } catch (e: unknown) {
+      if (options?.throwOnError) {
+        throw e;
+      }
+
+      const msg = getErrorMessage(e);
+      if (message?.error) {
+        message.error(msg);
+      } else {
+        console.error(msg);
+      }
+    }
+    set({ loading: false });
+  },
+
+  rebuildSnapshotFromDisk: async (options?: { throwOnError?: boolean }) => {
+    set({ loading: true });
+    try {
+      const snapshot = await api.rebuildAppSnapshot();
       get().hydrateSnapshot(snapshot);
     } catch (e: unknown) {
       if (options?.throwOnError) {

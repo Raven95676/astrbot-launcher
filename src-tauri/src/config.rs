@@ -145,3 +145,11 @@ pub fn load_config() -> Result<Arc<AppConfig>> {
     let config = cache.read().unwrap_or_else(|e| e.into_inner());
     Ok(Arc::clone(&config))
 }
+
+pub fn reload_config() -> Result<Arc<AppConfig>> {
+    let _guard = CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let cache = get_config_cache()?;
+    let fresh = Arc::new(load_config_from_disk()?);
+    *cache.write().unwrap_or_else(|e| e.into_inner()) = Arc::clone(&fresh);
+    Ok(fresh)
+}

@@ -82,7 +82,8 @@ pub fn run() {
             if let Some(main_webview) = app.get_webview_window("main") {
                 let _ = main_webview.with_webview(|webview| {
                     if let Some(settings) = webview.inner().settings() {
-                        settings.set_hardware_acceleration_policy(HardwareAccelerationPolicy::Never);
+                        settings
+                            .set_hardware_acceleration_policy(HardwareAccelerationPolicy::Never);
                     }
                 });
             }
@@ -101,33 +102,17 @@ pub fn run() {
             let mut rx = pm.subscribe_runtime_events();
 
             tauri::async_runtime::spawn(async move {
-                let mut last_python_installed = python::is_python_installed();
-
                 loop {
-                    tokio::select! {
-                        recv = rx.recv() => {
-                            match recv {
-                                Ok(_event) => {
-                                    if let Ok(snapshot) = commands::build_app_snapshot(&pm).await {
-                                        last_python_installed = snapshot.python_installed;
-                                        let _ = app_handle.emit("app-snapshot", &snapshot);
-                                    }
-                                }
-                                Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
-                                    log::warn!("Runtime event listener lagged, skipped {} events", skipped);
-                                }
-                                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    match rx.recv().await {
+                        Ok(_event) => {
+                            if let Ok(snapshot) = commands::build_app_snapshot(&pm).await {
+                                let _ = app_handle.emit("app-snapshot", &snapshot);
                             }
                         }
-                        _ = tokio::time::sleep(Duration::from_secs(5)) => {
-                            let python_installed = python::is_python_installed();
-                            if python_installed != last_python_installed {
-                                last_python_installed = python_installed;
-                                if let Ok(snapshot) = commands::build_app_snapshot(&pm).await {
-                                    let _ = app_handle.emit("app-snapshot", &snapshot);
-                                }
-                            }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                            log::warn!("Runtime event listener lagged, skipped {} events", skipped);
                         }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                     }
                 }
             });
@@ -206,6 +191,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_app_snapshot,
+            commands::rebuild_app_snapshot,
             // Config
             commands::save_github_proxy,
             commands::save_pypi_mirror,

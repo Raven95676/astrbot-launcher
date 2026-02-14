@@ -28,6 +28,7 @@ export default function Backup() {
   const startOperation = useAppStore((s) => s.startOperation);
   const finishOperation = useAppStore((s) => s.finishOperation);
   const reloadSnapshot = useAppStore((s) => s.reloadSnapshot);
+  const rebuildSnapshotFromDisk = useAppStore((s) => s.rebuildSnapshotFromDisk);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
@@ -203,7 +204,11 @@ export default function Backup() {
           备份管理
         </Title>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={() => reloadSnapshot()} loading={loading}>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => rebuildSnapshotFromDisk()}
+            loading={loading}
+          >
             刷新
           </Button>
           <Button

@@ -18,6 +18,7 @@ export default function Advanced() {
   const config = useAppStore((s) => s.config);
   const loading = useAppStore((s) => s.loading);
   const reloadSnapshot = useAppStore((s) => s.reloadSnapshot);
+  const rebuildSnapshotFromDisk = useAppStore((s) => s.rebuildSnapshotFromDisk);
   const operations = useAppStore((s) => s.operations);
   const startOperation = useAppStore((s) => s.startOperation);
   const finishOperation = useAppStore((s) => s.finishOperation);
@@ -353,7 +354,11 @@ export default function Advanced() {
         <Title level={4} style={{ margin: 0 }}>
           高级设置
         </Title>
-        <Button icon={<ReloadOutlined />} onClick={() => reloadSnapshot()} loading={loading}>
+        <Button
+          icon={<ReloadOutlined />}
+          onClick={() => rebuildSnapshotFromDisk()}
+          loading={loading}
+        >
           刷新
         </Button>
       </div>

@@ -41,6 +41,7 @@ export default function Dashboard() {
   const loading = useAppStore((s) => s.loading);
   const initialized = useAppStore((s) => s.initialized);
   const reloadSnapshot = useAppStore((s) => s.reloadSnapshot);
+  const rebuildSnapshotFromDisk = useAppStore((s) => s.rebuildSnapshotFromDisk);
   const operations = useAppStore((s) => s.operations);
   const startOperation = useAppStore((s) => s.startOperation);
   const finishOperation = useAppStore((s) => s.finishOperation);
@@ -426,7 +427,11 @@ export default function Dashboard() {
           实例管理
         </Title>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={() => reloadSnapshot()} loading={loading}>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => rebuildSnapshotFromDisk()}
+            loading={loading}
+          >
             刷新
           </Button>
           <Button
