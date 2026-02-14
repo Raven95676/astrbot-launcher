@@ -53,8 +53,8 @@ pub(super) fn graceful_signal(pid: u32) -> Result<()> {
     use nix::sys::signal::{kill, Signal};
     use nix::unistd::Pid;
 
-    kill(Pid::from_raw(pid as i32), Signal::SIGTERM)
-        .map_err(|e| AppError::process(format!("Failed to send SIGTERM to PID {}: {}", pid, e)))
+    kill(Pid::from_raw(pid as i32), Signal::SIGINT)
+        .map_err(|e| AppError::process(format!("Failed to send SIGINT to PID {}: {}", pid, e)))
 }
 
 #[cfg(target_os = "windows")]
