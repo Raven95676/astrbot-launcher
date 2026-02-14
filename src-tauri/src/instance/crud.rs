@@ -6,7 +6,7 @@ use tauri::AppHandle;
 
 use super::deploy::{deploy_instance, emit_progress};
 use super::types::{CmdConfig, InstanceStatus};
-use crate::backup::{create_auto_backup, delete_backup, restore_data_to_instance};
+use crate::backup::{create_backup, delete_backup, restore_data_to_instance};
 use crate::config::{load_config, with_config_mut, AppConfig, InstanceConfig};
 use crate::error::{AppError, Result};
 use crate::paths::{get_instance_core_dir, get_instance_dir, get_instance_venv_dir};
@@ -140,7 +140,7 @@ pub async fn update_instance(
     validate_instance_id(instance_id)?;
 
     // Determine whether this is a version change
-    let version_change = if let Some(v) = version {
+    let new_version = if let Some(v) = version {
         let config = load_config()?;
         let instance = config
             .instances
@@ -148,7 +148,7 @@ pub async fn update_instance(
             .ok_or_else(|| AppError::instance_not_found(instance_id))?;
         if instance.version != v {
             ensure_version_installed(&config, v)?;
-            Some((v.to_string(), instance.version.clone()))
+            Some(v.to_string())
         } else {
             None
         }
@@ -156,21 +156,14 @@ pub async fn update_instance(
         None
     };
 
-    if let Some((new_version, old_version)) = version_change {
+    if let Some(ref new_version) = new_version {
         // Version change
 
         // Backup
         emit_progress(app_handle, instance_id, "backup", "正在备份数据...", 5);
         let core_dir = get_instance_core_dir(instance_id);
         let backup_path = if core_dir.join("data").exists() {
-            let task = match (
-                semver::Version::parse(new_version.trim_start_matches('v')),
-                semver::Version::parse(old_version.trim_start_matches('v')),
-            ) {
-                (Ok(new_ver), Ok(old_ver)) if new_ver >= old_ver => "upgrade",
-                _ => "downgrade",
-            };
-            Some(create_auto_backup(instance_id, task)?)
+            Some(create_backup(instance_id, true)?)
         } else {
             None
         };

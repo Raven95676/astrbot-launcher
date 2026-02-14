@@ -131,6 +131,8 @@ pub struct BackupMetadata {
     pub includes_data: bool,
     #[serde(default)]
     pub arch_target: String,
+    #[serde(default)]
+    pub auto_generated: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

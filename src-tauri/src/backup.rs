@@ -26,7 +26,7 @@ fn is_tar_gz(path: &Path) -> bool {
 fn create_backup_archive(
     instance: &InstanceConfig,
     instance_id: &str,
-    filename_suffix: Option<&str>,
+    auto_generated: bool,
 ) -> Result<String> {
     let backups_dir = get_backups_dir();
     fs::create_dir_all(&backups_dir)
@@ -37,9 +37,10 @@ fn create_backup_archive(
 
     // Generate backup filename
     let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
-    let filename = match filename_suffix {
-        Some(suffix) => format!("{}-{}-{}.zip", instance_id, timestamp, suffix),
-        None => format!("{}-{}.zip", instance_id, timestamp),
+    let filename = if auto_generated {
+        format!("{}-{}-auto.zip", instance_id, timestamp)
+    } else {
+        format!("{}-{}.zip", instance_id, timestamp)
     };
     let backup_path = backups_dir.join(&filename);
 
@@ -52,6 +53,7 @@ fn create_backup_archive(
         includes_venv: false,
         includes_data: true,
         arch_target: String::new(),
+        auto_generated,
     };
 
     let file = File::create(&backup_path)
@@ -85,26 +87,23 @@ fn create_backup_archive(
         .to_string())
 }
 
-/// Create a backup of an instance
-pub fn create_backup(instance_id: &str) -> Result<String> {
+/// Create a backup of an instance.
+///
+/// When `auto_generated` is `true` the backup is tagged in its metadata and
+/// hidden from the user-facing backup list.
+pub fn create_backup(instance_id: &str, auto_generated: bool) -> Result<String> {
     let config = load_config()?;
     let instance = config
         .instances
         .get(instance_id)
         .ok_or_else(|| AppError::instance_not_found(instance_id))?;
 
-    create_backup_archive(instance, instance_id, None)
-}
+    let data_dir = get_instance_core_dir(instance_id).join("data");
+    if !data_dir.exists() {
+        return Err(AppError::backup("No data directory to back up"));
+    }
 
-/// Create an automatic backup for version upgrade/downgrade.
-pub fn create_auto_backup(instance_id: &str, task: &str) -> Result<String> {
-    let config = load_config()?;
-    let instance = config
-        .instances
-        .get(instance_id)
-        .ok_or_else(|| AppError::instance_not_found(instance_id))?;
-
-    create_backup_archive(instance, instance_id, Some(&format!("auto-{}", task)))
+    create_backup_archive(instance, instance_id, auto_generated)
 }
 
 /// List all backups
@@ -130,11 +129,8 @@ pub fn list_backups() -> Result<Vec<BackupInfo>> {
             }
         };
 
-        // Accept both .tar.gz and .zip, skip auto-backups
+        // Accept both .tar.gz and .zip
         if !(fname.ends_with(".tar.gz") || fname.ends_with(".zip")) {
-            continue;
-        }
-        if fname.contains("-auto-") {
             continue;
         }
 
@@ -147,6 +143,10 @@ pub fn list_backups() -> Result<Vec<BackupInfo>> {
         };
 
         if let Ok(metadata) = read_backup_metadata(&path) {
+            // Skip auto-generated backups
+            if metadata.auto_generated {
+                continue;
+            }
             backups.push(BackupInfo {
                 filename: fname,
                 path: path_str,

@@ -313,7 +313,7 @@ pub async fn create_backup(instance_id: String, state: State<'_, AppState>) -> R
     if state.process_manager.is_running(&instance_id).await {
         return Err(AppError::instance_running());
     }
-    backup::create_backup(&instance_id)
+    backup::create_backup(&instance_id, false)
 }
 
 #[tauri::command]
