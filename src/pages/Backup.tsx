@@ -1,15 +1,5 @@
 import { useState } from 'react';
-import {
-  Button,
-  Space,
-  Table,
-  Modal,
-  Form,
-  Select,
-  Typography,
-  Empty,
-  Alert,
-} from 'antd';
+import { Button, Space, Table, Modal, Form, Select, Typography, Empty } from 'antd';
 import { SaveOutlined, DeleteOutlined, ReloadOutlined, ImportOutlined } from '@ant-design/icons';
 import { api, BackupInfo } from '../api';
 import { message } from '../antdStatic';
@@ -222,15 +212,6 @@ export default function Backup() {
         </Space>
       </div>
 
-      {stoppedInstances.length === 0 && instances.length > 0 && (
-        <Alert
-          title="需要先停止实例才能创建备份"
-          type="info"
-          showIcon
-          style={{ marginBottom: 16 }}
-        />
-      )}
-
       <Table
         dataSource={backups}
         columns={columns}
@@ -279,9 +260,7 @@ export default function Backup() {
                 {selectedBackup.metadata.version}
               </Text>
               <br />
-              <Text type="secondary">
-                注意: 恢复将覆盖原实例的数据
-              </Text>
+              <Text type="secondary">注意: 恢复将覆盖原实例的数据</Text>
             </>
           )
         }

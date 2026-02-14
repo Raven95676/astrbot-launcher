@@ -8,7 +8,8 @@ export function TitleBar() {
 
   useEffect(() => {
     let mounted = true;
-    api.isMacOS()
+    api
+      .isMacOS()
       .then((value) => {
         if (mounted) {
           setIsMacOS(value);
@@ -53,11 +54,7 @@ function TitleBarInner() {
         AstrBot Launcher
       </div>
       <div className="titlebar-controls">
-        <button
-          className="titlebar-btn"
-          aria-label="Minimize"
-          onClick={() => appWindow.minimize()}
-        >
+        <button className="titlebar-btn" aria-label="Minimize" onClick={() => appWindow.minimize()}>
           <MinusOutlined style={{ fontSize: 12 }} />
         </button>
         <button
@@ -65,10 +62,11 @@ function TitleBarInner() {
           aria-label={maximized ? 'Restore' : 'Maximize'}
           onClick={() => appWindow.toggleMaximize()}
         >
-          {maximized
-            ? <BlockOutlined style={{ fontSize: 12 }} />
-            : <BorderOutlined style={{ fontSize: 12 }} />
-          }
+          {maximized ? (
+            <BlockOutlined style={{ fontSize: 12 }} />
+          ) : (
+            <BorderOutlined style={{ fontSize: 12 }} />
+          )}
         </button>
         <button
           className="titlebar-btn titlebar-btn-close"
