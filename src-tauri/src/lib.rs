@@ -87,6 +87,7 @@ pub fn run() {
                 });
             }
 
+            #[cfg(not(target_os = "macos"))]
             if let Some(main_window) = app.get_webview_window("main") {
                 let _ = main_window.set_decorations(false);
             }
@@ -212,6 +213,7 @@ pub fn run() {
             commands::compare_versions,
             commands::save_check_instance_update,
             commands::save_persist_instance_state,
+            commands::is_macos,
             // Python
             commands::install_python,
             commands::reinstall_python,

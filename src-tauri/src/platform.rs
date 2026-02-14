@@ -44,3 +44,7 @@ pub fn find_python_asset_for_version(
         major_version, arch_target
     ))
 }
+
+pub fn is_macos() -> bool {
+    OS == "macos"
+}

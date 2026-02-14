@@ -11,6 +11,7 @@ use crate::error::{AppError, Result};
 use crate::github::{self, GitHubRelease};
 use crate::instance::{self, InstanceStatus, ProcessManager};
 use crate::paths;
+use crate::platform;
 use crate::python;
 
 fn sort_installed_versions_semver(versions: &mut [InstalledVersion]) {
@@ -63,6 +64,11 @@ pub struct AppSnapshot {
 }
 
 // === Config ===
+
+#[tauri::command]
+pub fn is_macos() -> bool {
+    platform::is_macos()
+}
 
 #[tauri::command]
 pub async fn save_github_proxy(github_proxy: String, state: State<'_, AppState>) -> Result<()> {

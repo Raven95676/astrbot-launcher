@@ -34,6 +34,7 @@ export const api = {
     invoke<void>('save_check_instance_update', { checkInstanceUpdate }),
   savePersistInstanceState: (persistInstanceState: boolean) =>
     invoke<void>('save_persist_instance_state', { persistInstanceState }),
+  isMacOS: () => invoke<boolean>('is_macos'),
 
   // ========================================
   // Python
