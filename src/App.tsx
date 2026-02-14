@@ -8,7 +8,7 @@ import {
   SaveOutlined,
   ToolOutlined,
 } from '@ant-design/icons';
-import { ErrorBoundary } from './components';
+import { ErrorBoundary, TitleBar } from './components';
 import { AntdStaticProvider } from './antdStatic';
 import { useAppStore, initEventListeners, cleanupEventListeners } from './stores';
 import Dashboard from './pages/Dashboard';
@@ -53,53 +53,39 @@ function AppLayout() {
   ];
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sider
-        width={180}
-        theme="light"
-        style={{
-          overflow: 'auto',
-          height: '100vh',
-          position: 'fixed',
-          left: 0,
-          top: 0,
-          bottom: 0,
-        }}
-      >
-        <div
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <TitleBar />
+      <Layout style={{ flex: 1, overflow: 'hidden' }}>
+        <Sider
+          width={180}
+          theme="light"
           style={{
-            height: 48,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 700,
-            fontSize: 16,
-            borderBottom: '1px solid #f0f0f0',
+            overflow: 'auto',
+            height: '100%',
           }}
         >
-          AstrBot Launcher
-        </div>
-        <Menu
-          mode="inline"
-          selectedKeys={[location.pathname]}
-          items={menuItems}
-          onClick={({ key }) => navigate(key)}
-          style={{ borderRight: 0 }}
-        />
-      </Sider>
-      <Layout style={{ marginLeft: 180 }}>
-        <Content style={{ padding: 24, overflow: 'auto', height: '100vh' }}>
-          <ErrorBoundary>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/versions" element={<Versions />} />
-              <Route path="/backup" element={<Backup />} />
-              <Route path="/advanced" element={<Advanced />} />
-            </Routes>
-          </ErrorBoundary>
-        </Content>
+          <Menu
+            mode="inline"
+            selectedKeys={[location.pathname]}
+            items={menuItems}
+            onClick={({ key }) => navigate(key)}
+            style={{ borderRight: 0 }}
+          />
+        </Sider>
+        <Layout>
+          <Content style={{ padding: 24, overflow: 'auto', height: '100%' }}>
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/versions" element={<Versions />} />
+                <Route path="/backup" element={<Backup />} />
+                <Route path="/advanced" element={<Advanced />} />
+              </Routes>
+            </ErrorBoundary>
+          </Content>
+        </Layout>
       </Layout>
-    </Layout>
+    </div>
   );
 }
 

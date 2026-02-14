@@ -35,7 +35,10 @@ use instance::ProcessManager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "linux")]
-    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        std::env::set_var("GDK_BACKEND", "x11");
+    }
 
     paths::ensure_data_dirs().expect("Failed to create data directories");
 
@@ -82,6 +85,10 @@ pub fn run() {
                         settings.set_hardware_acceleration_policy(HardwareAccelerationPolicy::Never);
                     }
                 });
+            }
+
+            if let Some(main_window) = app.get_webview_window("main") {
+                let _ = main_window.set_decorations(false);
             }
 
             pm_for_monitor.start_runtime_monitor();
